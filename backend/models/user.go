@@ -29,11 +29,10 @@ type RefreshToken struct {
 
 // TableName specifies the table name for User
 func (User) TableName() string {
-	return "users"
+	return "user_details"
 }
 
 // TableName specifies the table name for RefreshToken
 func (RefreshToken) TableName() string {
 	return "refresh_tokens"
 }
-
