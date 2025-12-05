@@ -9,7 +9,7 @@ import (
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.Engine, userController *controller.UserController, hub *websocket.Hub) {
+func SetupRoutes(router *gin.Engine, userController *controller.UserController, messageController *controller.MessageController, hub *websocket.Hub) {
 	// API v1 group
 	api := router.Group("/api/realtime-chat")
 	{
@@ -46,6 +46,12 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 					"count":        len(users),
 				})
 			})
+
+			// Get chat history with a specific user
+			chat.GET("/history", messageController.GetChatHistory)
+
+			// Get all messages for current user
+			chat.GET("/messages", messageController.GetAllMessages)
 		}
 	}
 }

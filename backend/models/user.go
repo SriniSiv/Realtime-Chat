@@ -36,3 +36,22 @@ func (User) TableName() string {
 func (RefreshToken) TableName() string {
 	return "refresh_tokens"
 }
+
+// ChatMessage represents the chat_messages table
+type ChatMessage struct {
+	ID         uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	SenderID   uuid.UUID `gorm:"type:uuid;not null;index" json:"sender_id"`
+	ReceiverID uuid.UUID `gorm:"type:uuid;index" json:"receiver_id,omitempty"` // nil for broadcast
+	Content    string    `gorm:"type:text;not null" json:"content"`
+	Type       string    `gorm:"type:varchar(20);not null;default:'direct'" json:"type"` // direct, broadcast
+	CreatedAt  time.Time `gorm:"default:now();index" json:"created_at"`
+
+	// Relations
+	Sender   User `gorm:"foreignKey:SenderID;references:ID" json:"-"`
+	Receiver User `gorm:"foreignKey:ReceiverID;references:ID" json:"-"`
+}
+
+// TableName specifies the table name for ChatMessage
+func (ChatMessage) TableName() string {
+	return "chat_messages"
+}

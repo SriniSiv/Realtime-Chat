@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"backend/service"
 	"encoding/json"
 	"log"
 	"sync"
@@ -32,6 +33,9 @@ type Hub struct {
 	// Unregister requests from clients
 	unregister chan *Client
 
+	// Message service for persisting messages
+	messageService *service.MessageService
+
 	// Mutex for thread-safe operations
 	mu sync.RWMutex
 }
@@ -61,12 +65,13 @@ type OnlineUser struct {
 }
 
 // NewHub creates a new Hub instance
-func NewHub() *Hub {
+func NewHub(messageService *service.MessageService) *Hub {
 	return &Hub{
-		clients:    make(map[uuid.UUID]*Client),
-		broadcast:  make(chan *Message, 256),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
+		clients:        make(map[uuid.UUID]*Client),
+		broadcast:      make(chan *Message, 256),
+		register:       make(chan *Client),
+		unregister:     make(chan *Client),
+		messageService: messageService,
 	}
 }
 
@@ -98,6 +103,16 @@ func (h *Hub) Run() {
 		case message := <-h.broadcast:
 			// Enrich message with email information
 			h.EnrichMessage(message)
+
+			// Save message to database (only for direct and broadcast, not system)
+			if message.Type != "system" && h.messageService != nil {
+				go func(msg *Message) {
+					_, err := h.messageService.SaveMessage(msg.From, msg.To, msg.Content, msg.Type)
+					if err != nil {
+						log.Printf("Error saving message: %v", err)
+					}
+				}(message)
+			}
 
 			h.mu.RLock()
 

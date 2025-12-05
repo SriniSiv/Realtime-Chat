@@ -46,6 +46,28 @@ export const chatAPI = {
     });
     return response.json();
   },
+
+  // Get chat history with a specific user
+  getChatHistory: async (accessToken, userId, limit = 50, offset = 0) => {
+    const response = await fetch(
+      `${API_BASE_URL}/chat/history?user_id=${userId}&limit=${limit}&offset=${offset}`,
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      }
+    );
+    return response.json();
+  },
+
+  // Get all messages for current user
+  getAllMessages: async (accessToken, limit = 50, offset = 0) => {
+    const response = await fetch(
+      `${API_BASE_URL}/chat/messages?limit=${limit}&offset=${offset}`,
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      }
+    );
+    return response.json();
+  },
 };
 
 // WebSocket connection

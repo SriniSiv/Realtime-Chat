@@ -12,6 +12,7 @@ const ChatRoom = () => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
 
@@ -26,6 +27,43 @@ const ChatRoom = () => {
       console.error('Failed to fetch online users:', err);
     }
   }, [accessToken, user.id]);
+
+  // Fetch chat history when a user is selected
+  const fetchChatHistory = useCallback(async (userId) => {
+    if (!userId) return;
+
+    setLoadingHistory(true);
+    try {
+      const response = await chatAPI.getChatHistory(accessToken, userId);
+      if (response.messages) {
+        // Convert API response to match WebSocket message format
+        const historyMessages = response.messages.map(msg => ({
+          from: msg.sender_id,
+          from_email: msg.sender_email,
+          to: msg.receiver_id,
+          content: msg.content,
+          type: msg.type,
+          timestamp: msg.created_at,
+          isSent: msg.sender_id === user.id,
+        }));
+        setMessages(historyMessages);
+      }
+    } catch (err) {
+      console.error('Failed to fetch chat history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [accessToken, user.id]);
+
+  // Handle user selection
+  const handleSelectUser = useCallback((selectedUserData) => {
+    setSelectedUser(selectedUserData);
+    if (selectedUserData) {
+      fetchChatHistory(selectedUserData.id);
+    } else {
+      setMessages([]);
+    }
+  }, [fetchChatHistory]);
 
   const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -118,19 +156,20 @@ const ChatRoom = () => {
       </header>
 
       <div className="chat-container">
-        <UserList 
-          users={onlineUsers} 
-          selectedUser={selectedUser} 
-          onSelectUser={setSelectedUser}
+        <UserList
+          users={onlineUsers}
+          selectedUser={selectedUser}
+          onSelectUser={handleSelectUser}
           onRefresh={fetchOnlineUsers}
         />
         <div className="chat-main">
           <div className="chat-title">
             {selectedUser ? `Chat with ${selectedUser.email}` : 'Select a user to start chatting'}
+            {loadingHistory && <span className="loading-indicator"> Loading...</span>}
           </div>
           <MessageList messages={messages} currentUserId={user.id} />
-          <MessageInput 
-            onSend={sendMessage} 
+          <MessageInput
+            onSend={sendMessage}
             selectedUser={selectedUser}
             disabled={connectionStatus !== 'connected'}
           />

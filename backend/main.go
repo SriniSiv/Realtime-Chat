@@ -20,15 +20,18 @@ func main() {
 
 	// Initialize repository layer
 	userRepo := db.NewUserRepository(database)
+	messageRepo := db.NewMessageRepository(database)
 
 	// Initialize service layer
 	userService := service.NewUserService(userRepo)
+	messageService := service.NewMessageService(messageRepo, userRepo)
 
 	// Initialize controller layer
 	userController := controller.NewUserController(userService)
+	messageController := controller.NewMessageController(messageService)
 
-	// Initialize WebSocket hub
-	hub := websocket.NewHub()
+	// Initialize WebSocket hub with message service for persistence
+	hub := websocket.NewHub(messageService)
 	go hub.Run()
 
 	// Initialize Gin router
@@ -45,7 +48,7 @@ func main() {
 	}))
 
 	// Setup routes (now includes WebSocket)
-	routes.SetupRoutes(router, userController, hub)
+	routes.SetupRoutes(router, userController, messageController, hub)
 
 	// Start server
 	log.Println("Server starting on :8080")
