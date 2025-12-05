@@ -1,36 +1,54 @@
 package main
 
 import (
-	"context"
-	"fmt"
+	"backend/config"
+	"backend/controller"
+	"backend/db"
+	"backend/routes"
+	"backend/service"
+	"backend/websocket"
 	"log"
-	"os"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	ctx := context.Background()
+	// Initialize database
+	database := config.InitDB()
 
-	// Database connection string
-	databaseURL := "postgres://srini:srini@4614@localhost:5432/realtime_chat?sslmode=disable"
+	// Initialize repository layer
+	userRepo := db.NewUserRepository(database)
 
-	// Create connection pool
-	dbpool, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		log.Fatalf("Unable to create connection pool: %v\n", err)
-		os.Exit(1)
+	// Initialize service layer
+	userService := service.NewUserService(userRepo)
+
+	// Initialize controller layer
+	userController := controller.NewUserController(userService)
+
+	// Initialize WebSocket hub
+	hub := websocket.NewHub()
+	go hub.Run()
+
+	// Initialize Gin router
+	router := gin.Default()
+
+	// Setup routes
+	routes.SetupRoutes(router, userController)
+
+	// WebSocket endpoint
+	router.GET("/ws", websocket.HandleWebSocket(hub))
+
+	// Health check endpoint
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":         "ok",
+			"active_clients": hub.GetActiveClients(),
+		})
+	})
+
+	// Start server
+	log.Println("Server starting on :8080")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
-	defer dbpool.Close()
-
-	// Test the connection
-	err = dbpool.Ping(ctx)
-	if err != nil {
-		log.Fatalf("Unable to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("Successfully connected to the database!")
-
-	// TODO: Add your application logic here
 }
