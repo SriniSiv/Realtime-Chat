@@ -3,15 +3,26 @@ package routes
 import (
 	"backend/controller"
 	"backend/middleware"
+	"backend/websocket"
 
 	"github.com/gin-gonic/gin"
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.Engine, userController *controller.UserController) {
+func SetupRoutes(router *gin.Engine, userController *controller.UserController, hub *websocket.Hub) {
 	// API v1 group
 	api := router.Group("/api/realtime-chat")
 	{
+		// Health check endpoint
+		api.GET("/health", func(c *gin.Context) {
+			c.JSON(200, gin.H{
+				"status": "ok",
+			})
+		})
+
+		// WebSocket endpoint
+		api.GET("/ws", websocket.HandleWebSocket(hub))
+
 		// Auth routes (public)
 		auth := api.Group("/auth")
 		{
@@ -20,7 +31,7 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController) 
 			auth.POST("/refresh", userController.RefreshToken)
 
 			// Protected routes
-			auth.GET("/me", middleware.AuthMiddleware(), userController.GetMe)
+			auth.GET("/user-details", middleware.AuthMiddleware(), userController.GetUserDetails)
 		}
 	}
 }

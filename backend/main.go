@@ -32,19 +32,8 @@ func main() {
 	// Initialize Gin router
 	router := gin.Default()
 
-	// Setup routes
-	routes.SetupRoutes(router, userController)
-
-	// WebSocket endpoint
-	router.GET("/ws", websocket.HandleWebSocket(hub))
-
-	// Health check endpoint
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status":         "ok",
-			"active_clients": hub.GetActiveClients(),
-		})
-	})
+	// Setup routes (now includes WebSocket)
+	routes.SetupRoutes(router, userController, hub)
 
 	// Start server
 	log.Println("Server starting on :8080")

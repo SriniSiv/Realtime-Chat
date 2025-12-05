@@ -22,13 +22,6 @@ func NewUserController(service *service.UserService) *UserController {
 // Register handles user registration
 // @Summary Register a new user
 // @Description Create a new user account with email and password
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body models.RegisterRequest true "Registration details"
-// @Success 201 {object} models.AuthResponse
-// @Failure 400 {object} models.ErrorResponse
-// @Failure 500 {object} models.ErrorResponse
 // @Router /auth/register [post]
 func (ctrl *UserController) Register(c *gin.Context) {
 	var req models.RegisterRequest
@@ -56,13 +49,6 @@ func (ctrl *UserController) Register(c *gin.Context) {
 // Login handles user authentication
 // @Summary Login user
 // @Description Authenticate user and return JWT tokens
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body models.LoginRequest true "Login credentials"
-// @Success 200 {object} models.AuthResponse
-// @Failure 400 {object} models.ErrorResponse
-// @Failure 401 {object} models.ErrorResponse
 // @Router /auth/login [post]
 func (ctrl *UserController) Login(c *gin.Context) {
 	var req models.LoginRequest
@@ -90,13 +76,6 @@ func (ctrl *UserController) Login(c *gin.Context) {
 // RefreshToken handles token refresh
 // @Summary Refresh access token
 // @Description Generate a new access token using refresh token
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body models.RefreshTokenRequest true "Refresh token"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} models.ErrorResponse
-// @Failure 401 {object} models.ErrorResponse
 // @Router /auth/refresh [post]
 func (ctrl *UserController) RefreshToken(c *gin.Context) {
 	var req models.RefreshTokenRequest
@@ -123,17 +102,11 @@ func (ctrl *UserController) RefreshToken(c *gin.Context) {
 	})
 }
 
-// GetMe handles getting current user profile
+// GetUserDetails handles getting current user profile
 // @Summary Get current user profile
 // @Description Get logged-in user's profile information
-// @Tags auth
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} models.UserDTO
-// @Failure 401 {object} models.ErrorResponse
-// @Failure 404 {object} models.ErrorResponse
 // @Router /auth/me [get]
-func (ctrl *UserController) GetMe(c *gin.Context) {
+func (ctrl *UserController) GetUserDetails(c *gin.Context) {
 	// Get user ID from context (set by auth middleware)
 	userID, exists := c.Get("user_id")
 	if !exists {
