@@ -33,5 +33,19 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 			// Protected routes
 			auth.GET("/user-details", middleware.AuthMiddleware(), userController.GetUserDetails)
 		}
+
+		// Chat routes (protected)
+		chat := api.Group("/chat")
+		chat.Use(middleware.AuthMiddleware())
+		{
+			// Get list of online users
+			chat.GET("/online-users", func(c *gin.Context) {
+				users := hub.GetOnlineUsers()
+				c.JSON(200, gin.H{
+					"online_users": users,
+					"count":        len(users),
+				})
+			})
+		}
 	}
 }

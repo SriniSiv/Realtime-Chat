@@ -19,6 +19,12 @@ func NewUserController(service *service.UserService) *UserController {
 	return &UserController{service: service}
 }
 
+// SetWebSocketHub sets the WebSocket hub for online users functionality
+func (ctrl *UserController) SetWebSocketHub(hub interface{}) {
+	// Store hub reference if needed for online users endpoint
+	// This will be used in routes setup
+}
+
 // Register handles user registration
 // @Summary Register a new user
 // @Description Create a new user account with email and password

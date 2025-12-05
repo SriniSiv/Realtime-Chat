@@ -45,7 +45,7 @@ func (c *Client) ReadPump() {
 	})
 
 	for {
-		_, message, err := c.Conn.ws.ReadMessage()
+		_, rawMessage, err := c.Conn.ws.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("WebSocket error: %v", err)
@@ -53,12 +53,15 @@ func (c *Client) ReadPump() {
 			break
 		}
 
-		// Broadcast the message
-		c.Hub.broadcast <- &Message{
-			From:    c.ID,
-			Content: string(message),
-			Type:    "broadcast",
+		// Parse the incoming message
+		message, err := ParseIncomingMessage(rawMessage, c.ID)
+		if err != nil {
+			log.Printf("Error parsing message: %v", err)
+			continue
 		}
+
+		// Send message to hub for routing
+		c.Hub.broadcast <- message
 	}
 }
 
@@ -105,4 +108,3 @@ func (c *Client) WritePump() {
 		}
 	}
 }
-
