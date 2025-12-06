@@ -22,15 +22,15 @@ func NewMessageController(messageService *service.MessageService) *MessageContro
 // GetChatHistory returns chat history between current user and another user
 func (c *MessageController) GetChatHistory(ctx *gin.Context) {
 	// Get current user ID from context (set by auth middleware)
-	userIDStr, exists := ctx.Get("user_id")
+	userIDValue, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	currentUserID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+	currentUserID, ok := userIDValue.(uuid.UUID)
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
 		return
 	}
 
@@ -81,15 +81,15 @@ func (c *MessageController) GetChatHistory(ctx *gin.Context) {
 // GetAllMessages returns all messages for the current user
 func (c *MessageController) GetAllMessages(ctx *gin.Context) {
 	// Get current user ID from context
-	userIDStr, exists := ctx.Get("user_id")
+	userIDValue, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	currentUserID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+	currentUserID, ok := userIDValue.(uuid.UUID)
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
 		return
 	}
 
@@ -123,4 +123,3 @@ func (c *MessageController) GetAllMessages(ctx *gin.Context) {
 		"offset":   offset,
 	})
 }
-

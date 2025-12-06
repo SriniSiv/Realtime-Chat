@@ -44,24 +44,32 @@ func (c *Client) ReadPump() {
 		return nil
 	})
 
+	c.Conn.ws.SetReadLimit(maxMessageSize)
+	log.Printf("ReadPump started for client: %s (%s)", c.ID, c.Email)
+
 	for {
 		_, rawMessage, err := c.Conn.ws.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
+				log.Printf("WebSocket error for %s: %v", c.Email, err)
 			}
+			log.Printf("ReadPump ending for client: %s (%s), error: %v", c.ID, c.Email, err)
 			break
 		}
+
+		log.Printf("ReadPump received raw message from %s: %s", c.Email, string(rawMessage))
 
 		// Parse the incoming message
 		message, err := ParseIncomingMessage(rawMessage, c.ID)
 		if err != nil {
-			log.Printf("Error parsing message: %v", err)
+			log.Printf("Error parsing message from %s: %v", c.Email, err)
 			continue
 		}
 
+		log.Printf("Sending message to broadcast channel from %s", c.Email)
 		// Send message to hub for routing
 		c.Hub.broadcast <- message
+		log.Printf("Message sent to broadcast channel from %s", c.Email)
 	}
 }
 

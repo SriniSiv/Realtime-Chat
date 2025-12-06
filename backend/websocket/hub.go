@@ -101,17 +101,24 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 
 		case message := <-h.broadcast:
+			log.Printf("Received message in broadcast channel: from=%s, to=%s, type=%s, content=%s", message.From, message.To, message.Type, message.Content)
+
 			// Enrich message with email information
 			h.EnrichMessage(message)
 
 			// Save message to database (only for direct and broadcast, not system)
 			if message.Type != "system" && h.messageService != nil {
+				log.Printf("Saving message to database: type=%s, messageService=%v", message.Type, h.messageService != nil)
 				go func(msg *Message) {
-					_, err := h.messageService.SaveMessage(msg.From, msg.To, msg.Content, msg.Type)
+					savedMsg, err := h.messageService.SaveMessage(msg.From, msg.To, msg.Content, msg.Type)
 					if err != nil {
 						log.Printf("Error saving message: %v", err)
+					} else {
+						log.Printf("Message saved successfully: id=%s", savedMsg.ID)
 					}
 				}(message)
+			} else {
+				log.Printf("Skipping message save: type=%s, messageService=%v", message.Type, h.messageService != nil)
 			}
 
 			h.mu.RLock()
@@ -206,19 +213,25 @@ func ParseIncomingMessage(rawMessage []byte, senderID uuid.UUID) (*Message, erro
 	}
 
 	// Determine message type
-	if incoming.Type != "" {
-		message.Type = incoming.Type
-	} else if incoming.To == "" || incoming.To == "all" {
+	if incoming.To == "" || incoming.To == "all" {
 		message.Type = "broadcast"
 	} else {
 		message.Type = "direct"
 		// Parse recipient ID
 		recipientID, err := uuid.Parse(incoming.To)
 		if err != nil {
+			log.Printf("Error parsing recipient ID '%s': %v", incoming.To, err)
 			return nil, err
 		}
 		message.To = recipientID
 	}
+
+	// Override type if explicitly provided (but still keep the parsed To)
+	if incoming.Type != "" && incoming.Type != "direct" {
+		message.Type = incoming.Type
+	}
+
+	log.Printf("Parsed message: type=%s, to=%s, content=%s", message.Type, message.To, message.Content)
 
 	return message, nil
 }

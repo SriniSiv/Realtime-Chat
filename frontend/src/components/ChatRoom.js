@@ -7,7 +7,7 @@ import MessageInput from './MessageInput';
 import './ChatRoom.css';
 
 const ChatRoom = () => {
-  const { user, accessToken, logout } = useAuth();
+  const { user, logout, getValidAccessToken } = useAuth();
   const [messages, setMessages] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -15,10 +15,13 @@ const ChatRoom = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
 
   const fetchOnlineUsers = useCallback(async () => {
     try {
-      const response = await chatAPI.getOnlineUsers(accessToken);
+      const token = await getValidAccessToken();
+      if (!token) return;
+      const response = await chatAPI.getOnlineUsers(token);
       if (response.online_users) {
         const filteredUsers = response.online_users.filter(u => u.id !== user.id);
         setOnlineUsers(filteredUsers);
@@ -26,7 +29,7 @@ const ChatRoom = () => {
     } catch (err) {
       console.error('Failed to fetch online users:', err);
     }
-  }, [accessToken, user.id]);
+  }, [getValidAccessToken, user.id]);
 
   // Fetch chat history when a user is selected
   const fetchChatHistory = useCallback(async (userId) => {
@@ -34,7 +37,9 @@ const ChatRoom = () => {
 
     setLoadingHistory(true);
     try {
-      const response = await chatAPI.getChatHistory(accessToken, userId);
+      const token = await getValidAccessToken();
+      if (!token) return;
+      const response = await chatAPI.getChatHistory(token, userId);
       if (response.messages) {
         // Convert API response to match WebSocket message format
         const historyMessages = response.messages.map(msg => ({
@@ -53,7 +58,7 @@ const ChatRoom = () => {
     } finally {
       setLoadingHistory(false);
     }
-  }, [accessToken, user.id]);
+  }, [getValidAccessToken, user.id]);
 
   // Handle user selection
   const handleSelectUser = useCallback((selectedUserData) => {
@@ -65,22 +70,57 @@ const ChatRoom = () => {
     }
   }, [fetchChatHistory]);
 
-  const connectWebSocket = useCallback(() => {
+  // Fetch all messages for current user on login
+  const fetchAllMessages = useCallback(async () => {
+    try {
+      const token = await getValidAccessToken();
+      if (!token) return;
+      const response = await chatAPI.getAllMessages(token);
+      if (response.messages && response.messages.length > 0) {
+        const historyMessages = response.messages.map(msg => ({
+          from: msg.sender_id,
+          from_email: msg.sender_email,
+          to: msg.receiver_id,
+          content: msg.content,
+          type: msg.type,
+          timestamp: msg.created_at,
+          isSent: msg.sender_id === user.id,
+        }));
+        setMessages(historyMessages);
+      }
+    } catch (err) {
+      console.error('Failed to fetch all messages:', err);
+    }
+  }, [getValidAccessToken, user.id]);
+
+  const connectWebSocket = useCallback(async () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    const ws = createWebSocket(accessToken);
+    // Get a valid (fresh) token before connecting
+    const token = await getValidAccessToken();
+    if (!token) {
+      console.error('No valid token available for WebSocket connection');
+      setConnectionStatus('error');
+      return;
+    }
+
+    console.log('Connecting WebSocket with fresh token...');
+    const ws = createWebSocket(token);
     wsRef.current = ws;
 
     ws.onopen = () => {
+      console.log('WebSocket connected');
       setConnectionStatus('connected');
+      reconnectAttemptsRef.current = 0;
       fetchOnlineUsers();
+      fetchAllMessages(); // Load all messages on login
     };
 
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         setMessages(prev => [...prev, message]);
-        
+
         if (message.type === 'system') {
           setTimeout(fetchOnlineUsers, 500);
         }
@@ -89,15 +129,22 @@ const ChatRoom = () => {
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log('WebSocket closed:', event.code, event.reason);
       setConnectionStatus('disconnected');
-      reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
+
+      // Exponential backoff for reconnection (max 30 seconds)
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+      reconnectAttemptsRef.current++;
+      console.log(`Reconnecting in ${delay/1000} seconds...`);
+      reconnectTimeoutRef.current = setTimeout(connectWebSocket, delay);
     };
 
-    ws.onerror = () => {
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
       setConnectionStatus('error');
     };
-  }, [accessToken, fetchOnlineUsers]);
+  }, [getValidAccessToken, fetchOnlineUsers, fetchAllMessages]);
 
   useEffect(() => {
     connectWebSocket();
@@ -113,7 +160,10 @@ const ChatRoom = () => {
   }, [connectWebSocket]);
 
   const sendMessage = (content, type = 'direct') => {
+    console.log('sendMessage called:', { content, type, wsState: wsRef.current?.readyState, selectedUser });
+
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket not connected. State:', wsRef.current?.readyState);
       return;
     }
 
@@ -123,7 +173,9 @@ const ChatRoom = () => {
       type,
     };
 
+    console.log('Sending message via WebSocket:', message);
     wsRef.current.send(JSON.stringify(message));
+    console.log('Message sent successfully');
 
     // Add sent message to local state
     const sentMessage = {
