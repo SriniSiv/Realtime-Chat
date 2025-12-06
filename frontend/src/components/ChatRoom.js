@@ -119,11 +119,14 @@ const ChatRoom = () => {
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        setMessages(prev => [...prev, message]);
 
+        // Don't add system messages (online/offline) to chat - already shown in sidebar
         if (message.type === 'system') {
           setTimeout(fetchOnlineUsers, 500);
+          return;
         }
+
+        setMessages(prev => [...prev, message]);
       } catch (err) {
         console.error('Failed to parse message:', err);
       }
