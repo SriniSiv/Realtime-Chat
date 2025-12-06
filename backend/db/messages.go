@@ -2,6 +2,7 @@ package db
 
 import (
 	"backend/models"
+	"log"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -19,6 +20,8 @@ func NewMessageRepository(db *gorm.DB) *MessageRepository {
 
 // SaveMessage saves a chat message to the database
 func (r *MessageRepository) SaveMessage(senderID, receiverID uuid.UUID, content, msgType string) (*models.ChatMessage, error) {
+	log.Printf("Saving message: sender=%s, receiver=%s, type=%s, content=%s", senderID, receiverID, msgType, content)
+
 	message := &models.ChatMessage{
 		SenderID:   senderID,
 		ReceiverID: receiverID,
@@ -27,9 +30,11 @@ func (r *MessageRepository) SaveMessage(senderID, receiverID uuid.UUID, content,
 	}
 
 	if err := r.db.Create(message).Error; err != nil {
+		log.Printf("Error saving message to DB: %v", err)
 		return nil, err
 	}
 
+	log.Printf("Message saved successfully with ID: %s", message.ID)
 	return message, nil
 }
 
@@ -87,4 +92,3 @@ func (r *MessageRepository) GetUserMessages(userID uuid.UUID, limit, offset int)
 
 	return messages, nil
 }
-
