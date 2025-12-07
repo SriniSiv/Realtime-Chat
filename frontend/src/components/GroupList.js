@@ -25,8 +25,8 @@ const GroupList = ({ groups, selectedGroup, onSelectGroup, onCreateGroup, onRefr
 
       // Search user's groups and available groups in parallel
       const [userGroupsRes, availableRes] = await Promise.all([
-        groupAPI.searchUserGroups(token, query),
-        groupAPI.searchAvailableGroups(token, query),
+        groupAPI.filterGroups(token, { search_text: query, available_only: false }),
+        groupAPI.filterGroups(token, { search_text: query, available_only: true }),
       ]);
 
       if (userGroupsRes.groups) {

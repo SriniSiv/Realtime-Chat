@@ -51,7 +51,7 @@ const ChatRoom = () => {
     try {
       const token = await getValidAccessToken();
       if (!token) return;
-      const response = await groupAPI.getUserGroups(token);
+      const response = await groupAPI.filterGroups(token, { available_only: false });
       if (response.groups) {
         setGroups(response.groups);
       }

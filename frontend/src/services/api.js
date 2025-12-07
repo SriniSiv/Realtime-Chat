@@ -143,7 +143,11 @@ export const groupAPI = {
   },
 
   // Filter, search and paginate groups (consolidated endpoint)
-  // Uses POST /groups with filter options
+  // Uses POST /groups with filter options:
+  // - search_text: search by group name/description
+  // - available_only: true = groups user is NOT a member of, false = groups user IS a member of
+  // - page_info: { page: 1, page_size: 50 }
+  // - sort: { field: "name", order: "asc" }
   filterGroups: async (accessToken, filter = {}) => {
     const response = await fetch(`${API_BASE_URL}/groups`, {
       method: 'POST',
@@ -152,19 +156,6 @@ export const groupAPI = {
         'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify(filter),
-    });
-    return response.json();
-  },
-
-  // Get all groups for current user (uses consolidated endpoint)
-  getUserGroups: async (accessToken) => {
-    const response = await fetch(`${API_BASE_URL}/groups`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ available_only: false }),
     });
     return response.json();
   },
@@ -206,32 +197,6 @@ export const groupAPI = {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       }
     );
-    return response.json();
-  },
-
-  // Search user's groups (uses consolidated endpoint)
-  searchUserGroups: async (accessToken, query) => {
-    const response = await fetch(`${API_BASE_URL}/groups`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ search_text: query, available_only: false }),
-    });
-    return response.json();
-  },
-
-  // Search available groups (uses consolidated endpoint)
-  searchAvailableGroups: async (accessToken, query) => {
-    const response = await fetch(`${API_BASE_URL}/groups`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ search_text: query, available_only: true }),
-    });
     return response.json();
   },
 
