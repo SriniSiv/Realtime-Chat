@@ -99,13 +99,17 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 			// Search users by username or email
 			chat.GET("/users/search", func(c *gin.Context) {
 				query := c.Query("q")
-				if query == "" {
-					c.JSON(400, gin.H{"error": "search query 'q' is required"})
-					return
-				}
 
-				// Search users in database
-				users, err := userService.SearchUsers(query)
+				var users []models.UserDTO
+				var err error
+
+				if query == "" {
+					// Return all users when query is empty
+					users, err = userService.GetAllUsers()
+				} else {
+					// Search users in database
+					users, err = userService.SearchUsers(query)
+				}
 				if err != nil {
 					c.JSON(500, gin.H{"error": "failed to search users"})
 					return
