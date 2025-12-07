@@ -5,6 +5,7 @@ import (
 	"backend/controller"
 	"backend/db"
 	"backend/kafka"
+	"backend/models"
 	"backend/redis"
 	"backend/routes"
 	"backend/service"
@@ -27,20 +28,28 @@ func main() {
 	// Initialize database
 	database := config.InitDB()
 
+	// Auto-migrate new tables
+	database.AutoMigrate(&models.Group{}, &models.GroupMember{})
+
 	// Initialize repository layer
 	userRepo := db.NewUserRepository(database)
 	messageRepo := db.NewMessageRepository(database)
+	groupRepo := db.NewGroupRepository(database)
 
 	// Initialize service layer
 	userService := service.NewUserService(userRepo)
 	messageService := service.NewMessageService(messageRepo, userRepo)
+	groupService := service.NewGroupService(groupRepo, userRepo)
 
 	// Initialize controller layer
 	userController := controller.NewUserController(userService)
 	messageController := controller.NewMessageController(messageService)
+	groupController := controller.NewGroupController(groupService)
+	groupController.SetMessageService(messageService)
 
 	// Initialize WebSocket hub with message service for persistence
 	hub := websocket.NewHub(messageService)
+	hub.SetGroupMemberProvider(groupService)
 	go hub.Run()
 
 	// Get instance ID from environment
@@ -130,7 +139,7 @@ func main() {
 	}))
 
 	// Setup routes (now includes WebSocket)
-	routes.SetupRoutes(router, userController, messageController, hub, userService)
+	routes.SetupRoutes(router, userController, messageController, groupController, hub, userService, groupService)
 
 	// Handle graceful shutdown
 	go func() {

@@ -52,3 +52,37 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
+// CreateGroupRequest represents the create group request payload
+type CreateGroupRequest struct {
+	Name        string   `json:"name" binding:"required,min=2,max=100"`
+	Description string   `json:"description"`
+	MemberIDs   []string `json:"member_ids"` // Optional initial members
+}
+
+// AddMembersRequest represents the add members request payload
+type AddMembersRequest struct {
+	MemberIDs []string `json:"member_ids" binding:"required,min=1"`
+}
+
+// GroupDTO represents the group data transfer object
+type GroupDTO struct {
+	ID          uuid.UUID         `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	CreatedBy   uuid.UUID         `json:"created_by"`
+	CreatorName string            `json:"creator_name"`
+	MemberCount int               `json:"member_count"`
+	Members     []GroupMemberDTO  `json:"members,omitempty"`
+	CreatedAt   string            `json:"created_at"`
+}
+
+// GroupMemberDTO represents a group member
+type GroupMemberDTO struct {
+	ID       uuid.UUID `json:"id"`
+	UserID   uuid.UUID `json:"user_id"`
+	Username string    `json:"username"`
+	Email    string    `json:"email"`
+	Role     string    `json:"role"`
+	IsOnline bool      `json:"is_online"`
+}
+

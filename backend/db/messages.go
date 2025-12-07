@@ -92,3 +92,40 @@ func (r *MessageRepository) GetUserMessages(userID uuid.UUID, limit, offset int)
 
 	return messages, nil
 }
+
+// SaveGroupMessage saves a group chat message to the database
+func (r *MessageRepository) SaveGroupMessage(senderID, groupID uuid.UUID, content string) (*models.ChatMessage, error) {
+	log.Printf("Saving group message: sender=%s, group=%s, content=%s", senderID, groupID, content)
+
+	message := &models.ChatMessage{
+		SenderID: senderID,
+		GroupID:  groupID,
+		Content:  content,
+		Type:     "group",
+	}
+
+	if err := r.db.Create(message).Error; err != nil {
+		log.Printf("Error saving group message to DB: %v", err)
+		return nil, err
+	}
+
+	log.Printf("Group message saved successfully with ID: %s", message.ID)
+	return message, nil
+}
+
+// GetGroupMessages retrieves messages for a group
+func (r *MessageRepository) GetGroupMessages(groupID uuid.UUID, limit, offset int) ([]models.ChatMessage, error) {
+	var messages []models.ChatMessage
+
+	err := r.db.Where("group_id = ? AND type = ?", groupID, "group").
+		Order("created_at ASC").
+		Limit(limit).
+		Offset(offset).
+		Find(&messages).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return messages, nil
+}

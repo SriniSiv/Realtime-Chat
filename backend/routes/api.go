@@ -12,7 +12,7 @@ import (
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.Engine, userController *controller.UserController, messageController *controller.MessageController, hub *websocket.Hub, userService *service.UserService) {
+func SetupRoutes(router *gin.Engine, userController *controller.UserController, messageController *controller.MessageController, groupController *controller.GroupController, hub *websocket.Hub, userService *service.UserService, groupService *service.GroupService) {
 	// API v1 group
 	api := router.Group("/api/realtime-chat")
 	{
@@ -140,6 +140,29 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 
 			// Get all messages for current user
 			chat.GET("/messages", messageController.GetAllMessages)
+		}
+
+		// Group routes (protected)
+		groups := api.Group("/groups")
+		groups.Use(middleware.AuthMiddleware())
+		{
+			// Create a new group
+			groups.POST("", groupController.CreateGroup)
+
+			// Get all groups for current user
+			groups.GET("", groupController.GetUserGroups)
+
+			// Get group details
+			groups.GET("/:id", groupController.GetGroup)
+
+			// Get group members
+			groups.GET("/:id/members", groupController.GetGroupMembers)
+
+			// Add members to a group
+			groups.POST("/:id/members", groupController.AddMembers)
+
+			// Get group messages
+			groups.GET("/:id/messages", groupController.GetGroupMessages)
 		}
 	}
 }

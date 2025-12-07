@@ -22,6 +22,11 @@ type Client struct {
 	Hub   *Hub
 }
 
+// GroupMemberProvider interface for getting group members
+type GroupMemberProvider interface {
+	GetGroupMemberIDs(groupID uuid.UUID) ([]uuid.UUID, error)
+}
+
 // Hub maintains the set of active clients and broadcasts messages
 type Hub struct {
 	// Registered clients
@@ -38,6 +43,9 @@ type Hub struct {
 
 	// Message service for persisting messages (used when Kafka is disabled)
 	messageService *service.MessageService
+
+	// Group member provider for getting group members
+	groupMemberProvider GroupMemberProvider
 
 	// Kafka producer for publishing messages for persistence
 	kafkaProducer *kafka.Producer
@@ -58,14 +66,17 @@ type Message struct {
 	FromEmail string    `json:"from_email"`
 	To        uuid.UUID `json:"to,omitempty"`
 	ToEmail   string    `json:"to_email,omitempty"`
+	GroupID   uuid.UUID `json:"group_id,omitempty"`
+	GroupName string    `json:"group_name,omitempty"`
 	Content   string    `json:"content"`
-	Type      string    `json:"type"` // "direct", "broadcast", "system"
+	Type      string    `json:"type"` // "direct", "broadcast", "group", "system"
 	Timestamp time.Time `json:"timestamp"`
 }
 
 // IncomingMessage represents a message received from client
 type IncomingMessage struct {
-	To      string `json:"to"` // Can be user ID or "all" for broadcast
+	To      string `json:"to"`                 // Can be user ID or "all" for broadcast
+	GroupID string `json:"group_id,omitempty"` // Group ID for group messages
 	Content string `json:"content"`
 	Type    string `json:"type,omitempty"` // Optional, defaults to "direct"
 }
@@ -98,6 +109,12 @@ func (h *Hub) SetKafkaProducer(producer *kafka.Producer, instanceID string) {
 func (h *Hub) SetRedisPubSub(pubsub *redis.PubSub) {
 	h.redisPubSub = pubsub
 	log.Println("Redis Pub/Sub set for hub (real-time fanout)")
+}
+
+// SetGroupMemberProvider sets the group member provider for group messages
+func (h *Hub) SetGroupMemberProvider(provider GroupMemberProvider) {
+	h.groupMemberProvider = provider
+	log.Println("Group member provider set for hub")
 }
 
 // HandleRedisMessage processes a message received from Redis (from another instance)
@@ -135,10 +152,39 @@ func (h *Hub) broadcastToLocalClients(message *Message) {
 		if client, ok := h.clients[message.To]; ok {
 			select {
 			case client.Send <- messageJSON:
-				log.Printf("Redis: Direct message sent to local client %s", message.ToEmail)
+				log.Printf("Direct message sent to local client %s", message.ToEmail)
 			default:
 				close(client.Send)
 				delete(h.clients, client.ID)
+			}
+		}
+		// Also send to sender for confirmation
+		if client, ok := h.clients[message.From]; ok {
+			select {
+			case client.Send <- messageJSON:
+			default:
+				close(client.Send)
+				delete(h.clients, message.From)
+			}
+		}
+	} else if message.Type == "group" && message.GroupID != uuid.Nil {
+		// Send to all group members connected to this instance
+		if h.groupMemberProvider != nil {
+			memberIDs, err := h.groupMemberProvider.GetGroupMemberIDs(message.GroupID)
+			if err != nil {
+				log.Printf("Error getting group members: %v", err)
+				return
+			}
+			for _, memberID := range memberIDs {
+				if client, ok := h.clients[memberID]; ok {
+					select {
+					case client.Send <- messageJSON:
+						log.Printf("Group message sent to member %s", memberID)
+					default:
+						close(client.Send)
+						delete(h.clients, memberID)
+					}
+				}
 			}
 		}
 	} else {
@@ -293,7 +339,20 @@ func ParseIncomingMessage(rawMessage []byte, senderID uuid.UUID) (*Message, erro
 		Timestamp: time.Now(),
 	}
 
-	// Determine message type
+	// Check if this is a group message
+	if incoming.GroupID != "" {
+		groupID, err := uuid.Parse(incoming.GroupID)
+		if err != nil {
+			log.Printf("Error parsing group ID '%s': %v", incoming.GroupID, err)
+			return nil, err
+		}
+		message.Type = "group"
+		message.GroupID = groupID
+		log.Printf("Parsed group message: groupID=%s, content=%s", message.GroupID, message.Content)
+		return message, nil
+	}
+
+	// Determine message type for non-group messages
 	if incoming.To == "" || incoming.To == "all" {
 		message.Type = "broadcast"
 	} else {
@@ -308,7 +367,7 @@ func ParseIncomingMessage(rawMessage []byte, senderID uuid.UUID) (*Message, erro
 	}
 
 	// Override type if explicitly provided (but still keep the parsed To)
-	if incoming.Type != "" && incoming.Type != "direct" {
+	if incoming.Type != "" && incoming.Type != "direct" && incoming.Type != "group" {
 		message.Type = incoming.Type
 	}
 
