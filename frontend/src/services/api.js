@@ -3,11 +3,11 @@ const WS_BASE_URL = 'ws://localhost:8080/api/realtime-chat';
 
 // Auth API calls
 export const authAPI = {
-  register: async (email, password) => {
+  register: async (username, email, password) => {
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ username, email, password }),
     });
     return response.json();
   },

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import './Auth.css';
 
 const Register = ({ onSwitchToLogin }) => {
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -16,6 +17,11 @@ const Register = ({ onSwitchToLogin }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (username.length < 3) {
+      setError('Username must be at least 3 characters');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -30,7 +36,7 @@ const Register = ({ onSwitchToLogin }) => {
     setLoading(true);
 
     try {
-      const response = await authAPI.register(email, password);
+      const response = await authAPI.register(username, email, password);
 
       if (response.error) {
         setError(response.error);
@@ -60,7 +66,20 @@ const Register = ({ onSwitchToLogin }) => {
         
         <form onSubmit={handleSubmit} className="auth-form">
           {error && <div className="error-message">{error}</div>}
-          
+
+          <div className="form-group">
+            <label>Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Choose a username"
+              required
+              minLength={3}
+              maxLength={50}
+            />
+          </div>
+
           <div className="form-group">
             <label>Email</label>
             <input

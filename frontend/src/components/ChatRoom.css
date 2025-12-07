@@ -95,6 +95,29 @@
 
 .refresh-btn:hover { background: #e5e7eb; }
 
+.user-search {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: #667eea;
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
 .user-list-content {
   flex: 1;
   overflow-y: auto;

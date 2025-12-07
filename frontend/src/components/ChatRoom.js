@@ -221,7 +221,7 @@ const ChatRoom = () => {
         />
         <div className="chat-main">
           <div className="chat-title">
-            {selectedUser ? `Chat with ${selectedUser.email}` : 'Select a user to start chatting'}
+            {selectedUser ? `Chat with ${selectedUser.username || selectedUser.email}` : 'Select a user to start chatting'}
             {loadingHistory && <span className="loading-indicator"> Loading...</span>}
           </div>
           <MessageList messages={messages} currentUserId={user.id} selectedUserId={selectedUser?.id} />
