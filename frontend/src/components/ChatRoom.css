@@ -664,3 +664,128 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Group Search Styles */
+.group-search {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  position: relative;
+}
+
+.group-search .search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.group-search .search-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.group-search .search-loading {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+}
+
+.group-toggle {
+  display: flex;
+  padding: 8px 12px;
+  gap: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  background: #f3f4f6;
+}
+
+.toggle-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.group-item.available {
+  opacity: 0.8;
+  border: 1px dashed #d1d5db;
+}
+
+.group-item .add-member-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.group-item.selected .add-member-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Add Members Modal */
+.modal-body {
+  padding: 20px;
+}
+
+.modal-body .search-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.modal-body .search-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.error-msg {
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.loading-msg {
+  text-align: center;
+  padding: 20px;
+  color: #6b7280;
+}
+
+.member-option .member-status {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.member-option .member-status.online {
+  color: #10b981;
+}
+
+.member-option .member-status.offline {
+  color: #9ca3af;
+}

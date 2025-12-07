@@ -6,6 +6,7 @@ import GroupList from './GroupList';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import CreateGroupModal from './CreateGroupModal';
+import AddMembersModal from './AddMembersModal';
 import './ChatRoom.css';
 
 const ChatRoom = () => {
@@ -18,6 +19,8 @@ const ChatRoom = () => {
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showAddMembers, setShowAddMembers] = useState(false);
+  const [addMembersGroup, setAddMembersGroup] = useState(null);
   const [activeTab, setActiveTab] = useState('dms'); // 'dms' or 'groups'
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -285,6 +288,22 @@ const ChatRoom = () => {
     }
   };
 
+  // Handle adding members to a group
+  const handleAddMembers = (group) => {
+    setAddMembersGroup(group);
+    setShowAddMembers(true);
+  };
+
+  // Handle members added callback
+  const handleMembersAdded = (updatedGroup) => {
+    // Update the group in the list
+    setGroups(prev => prev.map(g => g.id === updatedGroup.id ? updatedGroup : g));
+    // Update selected group if it's the same
+    if (selectedGroup?.id === updatedGroup.id) {
+      setSelectedGroup(updatedGroup);
+    }
+  };
+
   const getConnectionStatusText = () => {
     if (connectionStatus === 'connected') return '● Connected';
     if (connectionStatus === 'connecting') return '○ Connecting...';
@@ -343,6 +362,7 @@ const ChatRoom = () => {
               onSelectGroup={handleSelectGroup}
               onCreateGroup={() => setShowCreateGroup(true)}
               onRefresh={fetchGroups}
+              onAddMembers={handleAddMembers}
             />
           )}
         </div>
@@ -372,6 +392,17 @@ const ChatRoom = () => {
           onClose={() => setShowCreateGroup(false)}
           onCreate={handleCreateGroup}
           availableUsers={allUsers}
+        />
+      )}
+
+      {showAddMembers && addMembersGroup && (
+        <AddMembersModal
+          group={addMembersGroup}
+          onClose={() => {
+            setShowAddMembers(false);
+            setAddMembersGroup(null);
+          }}
+          onMembersAdded={handleMembersAdded}
         />
       )}
     </div>

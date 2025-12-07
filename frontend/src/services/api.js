@@ -148,6 +148,28 @@ export const groupAPI = {
     );
     return response.json();
   },
+
+  // Search user's groups
+  searchUserGroups: async (accessToken, query) => {
+    const response = await fetch(
+      `${API_BASE_URL}/groups/search?q=${encodeURIComponent(query)}`,
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      }
+    );
+    return response.json();
+  },
+
+  // Search available groups (groups user is not a member of)
+  searchAvailableGroups: async (accessToken, query) => {
+    const response = await fetch(
+      `${API_BASE_URL}/groups/search/available?q=${encodeURIComponent(query)}`,
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      }
+    );
+    return response.json();
+  },
 };
 
 // WebSocket connection
