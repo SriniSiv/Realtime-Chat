@@ -31,21 +31,6 @@ func (r *GroupRepository) GetGroupByID(groupID uuid.UUID) (*models.Group, error)
 	return &group, nil
 }
 
-// GetUserGroups retrieves all groups a user is a member of
-func (r *GroupRepository) GetUserGroups(userID uuid.UUID) ([]models.Group, error) {
-	var groups []models.Group
-	err := r.db.Raw(`
-		SELECT g.* FROM chat_groups g
-		INNER JOIN group_members gm ON g.id = gm.group_id
-		WHERE gm.user_id = ? AND g.deleted_at IS NULL
-		ORDER BY g.updated_at DESC
-	`, userID).Scan(&groups).Error
-	if err != nil {
-		return nil, err
-	}
-	return groups, nil
-}
-
 // AddMember adds a user to a group
 func (r *GroupRepository) AddMember(member *models.GroupMember) error {
 	return r.db.Create(member).Error
@@ -142,34 +127,97 @@ func (r *GroupRepository) UpdateGroupNameAndDescription(groupID uuid.UUID, name,
 	return r.db.Model(&models.Group{}).Where("id = ?", groupID).Updates(updates).Error
 }
 
-// SearchAvailableGroups searches for groups the user is NOT a member of
-func (r *GroupRepository) SearchAvailableGroups(userID uuid.UUID, query string) ([]models.Group, error) {
+// FilterGroups filters and searches groups with pagination
+func (r *GroupRepository) FilterGroups(filter *models.GroupFilterRequest, userID uuid.UUID) ([]models.Group, int64, error) {
 	var groups []models.Group
-	searchPattern := "%" + query + "%"
-	err := r.db.Raw(`
-		SELECT g.* FROM chat_groups g
-		WHERE g.id NOT IN (
-			SELECT gm.group_id FROM group_members gm WHERE gm.user_id = ?
-		)
-		AND g.deleted_at IS NULL
-		AND (LOWER(g.name) LIKE LOWER(?) OR LOWER(g.description) LIKE LOWER(?))
-		ORDER BY g.name ASC
-		LIMIT 20
-	`, userID, searchPattern, searchPattern).Scan(&groups).Error
-	return groups, err
-}
+	var totalCount int64
 
-// SearchUserGroups searches for groups the user IS a member of
-func (r *GroupRepository) SearchUserGroups(userID uuid.UUID, query string) ([]models.Group, error) {
-	var groups []models.Group
-	searchPattern := "%" + query + "%"
-	err := r.db.Raw(`
-		SELECT g.* FROM chat_groups g
-		INNER JOIN group_members gm ON g.id = gm.group_id
-		WHERE gm.user_id = ? AND g.deleted_at IS NULL
-		AND (LOWER(g.name) LIKE LOWER(?) OR LOWER(g.description) LIKE LOWER(?))
-		ORDER BY g.updated_at DESC
-	`, userID, searchPattern, searchPattern).Scan(&groups).Error
-	return groups, err
+	// Build base query based on available_only flag
+	var baseQuery string
+	var countQuery string
+	args := []interface{}{}
+
+	if filter.AvailableOnly {
+		// Groups user is NOT a member of
+		baseQuery = `
+			SELECT g.* FROM chat_groups g
+			WHERE g.id NOT IN (
+				SELECT gm.group_id FROM group_members gm WHERE gm.user_id = ?
+			)
+			AND g.deleted_at IS NULL`
+		countQuery = `
+			SELECT COUNT(*) FROM chat_groups g
+			WHERE g.id NOT IN (
+				SELECT gm.group_id FROM group_members gm WHERE gm.user_id = ?
+			)
+			AND g.deleted_at IS NULL`
+		args = append(args, userID)
+	} else {
+		// Groups user IS a member of
+		baseQuery = `
+			SELECT g.* FROM chat_groups g
+			INNER JOIN group_members gm ON g.id = gm.group_id
+			WHERE gm.user_id = ? AND g.deleted_at IS NULL`
+		countQuery = `
+			SELECT COUNT(*) FROM chat_groups g
+			INNER JOIN group_members gm ON g.id = gm.group_id
+			WHERE gm.user_id = ? AND g.deleted_at IS NULL`
+		args = append(args, userID)
+	}
+
+	// Apply search filter
+	if filter.SearchString != "" {
+		searchPattern := "%" + filter.SearchString + "%"
+		baseQuery += ` AND (g.name ILIKE ? OR g.description ILIKE ?)`
+		countQuery += ` AND (g.name ILIKE ? OR g.description ILIKE ?)`
+		args = append(args, searchPattern, searchPattern)
+	}
+
+	// Get total count
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
+	if err := r.db.Raw(countQuery, countArgs...).Scan(&totalCount).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Apply sorting
+	orderBy := "g.updated_at DESC" // default
+	if filter.Sorting != nil && filter.Sorting.Field != "" {
+		validFields := map[string]string{
+			"name":       "g.name",
+			"created_at": "g.created_at",
+			"updated_at": "g.updated_at",
+		}
+		if dbField, ok := validFields[filter.Sorting.Field]; ok {
+			order := "ASC"
+			if filter.Sorting.Order == "desc" {
+				order = "DESC"
+			}
+			orderBy = dbField + " " + order
+		}
+	}
+	baseQuery += " ORDER BY " + orderBy
+
+	// Apply pagination
+	page := 1
+	pageSize := 50
+	if filter.PageInfo != nil {
+		if filter.PageInfo.Page > 0 {
+			page = filter.PageInfo.Page
+		}
+		if filter.PageInfo.PageSize > 0 {
+			pageSize = filter.PageInfo.PageSize
+		}
+	}
+	offset := (page - 1) * pageSize
+	baseQuery += " LIMIT ? OFFSET ?"
+	args = append(args, pageSize, offset)
+
+	// Execute query
+	if err := r.db.Raw(baseQuery, args...).Scan(&groups).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return groups, totalCount, nil
 }
 

@@ -131,7 +131,7 @@ export const chatAPI = {
 export const groupAPI = {
   // Create a new group
   createGroup: async (accessToken, name, description, memberIds = []) => {
-    const response = await fetch(`${API_BASE_URL}/groups`, {
+    const response = await fetch(`${API_BASE_URL}/groups/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -142,10 +142,29 @@ export const groupAPI = {
     return response.json();
   },
 
-  // Get all groups for current user
+  // Filter, search and paginate groups (consolidated endpoint)
+  // Uses POST /groups with filter options
+  filterGroups: async (accessToken, filter = {}) => {
+    const response = await fetch(`${API_BASE_URL}/groups`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(filter),
+    });
+    return response.json();
+  },
+
+  // Get all groups for current user (uses consolidated endpoint)
   getUserGroups: async (accessToken) => {
     const response = await fetch(`${API_BASE_URL}/groups`, {
-      headers: { 'Authorization': `Bearer ${accessToken}` },
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ available_only: false }),
     });
     return response.json();
   },
@@ -190,25 +209,29 @@ export const groupAPI = {
     return response.json();
   },
 
-  // Search user's groups
+  // Search user's groups (uses consolidated endpoint)
   searchUserGroups: async (accessToken, query) => {
-    const response = await fetch(
-      `${API_BASE_URL}/groups/search?q=${encodeURIComponent(query)}`,
-      {
-        headers: { 'Authorization': `Bearer ${accessToken}` },
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/groups`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ search_text: query, available_only: false }),
+    });
     return response.json();
   },
 
-  // Search available groups (groups user is not a member of)
+  // Search available groups (uses consolidated endpoint)
   searchAvailableGroups: async (accessToken, query) => {
-    const response = await fetch(
-      `${API_BASE_URL}/groups/search/available?q=${encodeURIComponent(query)}`,
-      {
-        headers: { 'Authorization': `Bearer ${accessToken}` },
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/groups`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ search_text: query, available_only: true }),
+    });
     return response.json();
   },
 

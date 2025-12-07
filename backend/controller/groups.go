@@ -65,8 +65,11 @@ func (c *GroupController) CreateGroup(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, gin.H{"group": group})
 }
 
-// GetUserGroups handles GET /groups
-func (c *GroupController) GetUserGroups(ctx *gin.Context) {
+// FilterGroups handles POST /groups - Filter, search and paginate groups
+// @Summary Filter and search groups
+// @Description Filter, search and paginate groups with options for user's groups or available groups
+// @Router /groups [post]
+func (c *GroupController) FilterGroups(ctx *gin.Context) {
 	currentUserID, exists := ctx.Get("user_id")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
@@ -79,13 +82,19 @@ func (c *GroupController) GetUserGroups(ctx *gin.Context) {
 		return
 	}
 
-	groups, err := c.groupService.GetUserGroups(userID)
+	var filter models.GroupFilterRequest
+	if err := ctx.ShouldBindJSON(&filter); err != nil {
+		// If no body provided, use empty filter
+		filter = models.GroupFilterRequest{}
+	}
+
+	result, err := c.groupService.FilterGroups(&filter, userID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"groups": groups, "count": len(groups)})
+	ctx.JSON(http.StatusOK, result)
 }
 
 // GetGroupMembers handles GET /groups/:id/members
@@ -195,64 +204,6 @@ func (c *GroupController) GetGroup(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"group": group})
-}
-
-// SearchAvailableGroups handles GET /groups/search/available
-func (c *GroupController) SearchAvailableGroups(ctx *gin.Context) {
-	currentUserID, exists := ctx.Get("user_id")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
-		return
-	}
-
-	userID, ok := currentUserID.(uuid.UUID)
-	if !ok {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user ID"})
-		return
-	}
-
-	query := ctx.Query("q")
-	if query == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "search query 'q' is required"})
-		return
-	}
-
-	groups, err := c.groupService.SearchAvailableGroups(userID, query)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"groups": groups, "count": len(groups)})
-}
-
-// SearchUserGroups handles GET /groups/search
-func (c *GroupController) SearchUserGroups(ctx *gin.Context) {
-	currentUserID, exists := ctx.Get("user_id")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
-		return
-	}
-
-	userID, ok := currentUserID.(uuid.UUID)
-	if !ok {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user ID"})
-		return
-	}
-
-	query := ctx.Query("q")
-	if query == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "search query 'q' is required"})
-		return
-	}
-
-	groups, err := c.groupService.SearchUserGroups(userID, query)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"groups": groups, "count": len(groups)})
 }
 
 // UpdateGroup handles PUT /groups/:id

@@ -93,36 +93,6 @@ func (s *GroupService) GetGroupDTO(groupID uuid.UUID) (*models.GroupDTO, error) 
 	}, nil
 }
 
-// GetUserGroups returns all groups a user is a member of
-func (s *GroupService) GetUserGroups(userID uuid.UUID) ([]models.GroupDTO, error) {
-	groups, err := s.groupRepo.GetUserGroups(userID)
-	if err != nil {
-		return nil, errors.New("failed to fetch groups")
-	}
-
-	groupDTOs := make([]models.GroupDTO, len(groups))
-	for i, group := range groups {
-		memberCount, _ := s.groupRepo.GetMemberCount(group.ID)
-		creator, _ := s.userRepo.GetUserByID(group.CreatedBy)
-		creatorName := ""
-		if creator != nil {
-			creatorName = creator.Username
-		}
-
-		groupDTOs[i] = models.GroupDTO{
-			ID:          group.ID,
-			Name:        group.Name,
-			Description: group.Description,
-			CreatedBy:   group.CreatedBy,
-			CreatorName: creatorName,
-			MemberCount: int(memberCount),
-			CreatedAt:   group.CreatedAt.Format(time.RFC3339),
-		}
-	}
-
-	return groupDTOs, nil
-}
-
 // AddMembers adds members to a group (public groups - anyone can add members)
 func (s *GroupService) AddMembers(groupID uuid.UUID, requestingUserID uuid.UUID, memberIDs []uuid.UUID) error {
 	// For public groups, anyone can add members (including self-join)
@@ -193,13 +163,14 @@ func (s *GroupService) GetGroupMemberIDs(groupID uuid.UUID) ([]uuid.UUID, error)
 	return s.groupRepo.GetGroupMemberIDs(groupID)
 }
 
-// SearchAvailableGroups searches for groups the user is NOT a member of
-func (s *GroupService) SearchAvailableGroups(userID uuid.UUID, query string) ([]models.GroupDTO, error) {
-	groups, err := s.groupRepo.SearchAvailableGroups(userID, query)
+// FilterGroups filters and searches groups with pagination
+func (s *GroupService) FilterGroups(filter *models.GroupFilterRequest, userID uuid.UUID) (*models.GroupFilterResponse, error) {
+	groups, totalCount, err := s.groupRepo.FilterGroups(filter, userID)
 	if err != nil {
-		return nil, errors.New("failed to search groups")
+		return nil, errors.New("failed to filter groups")
 	}
 
+	// Build group DTOs
 	groupDTOs := make([]models.GroupDTO, len(groups))
 	for i, group := range groups {
 		memberCount, _ := s.groupRepo.GetMemberCount(group.ID)
@@ -220,37 +191,24 @@ func (s *GroupService) SearchAvailableGroups(userID uuid.UUID, query string) ([]
 		}
 	}
 
-	return groupDTOs, nil
-}
-
-// SearchUserGroups searches for groups the user IS a member of
-func (s *GroupService) SearchUserGroups(userID uuid.UUID, query string) ([]models.GroupDTO, error) {
-	groups, err := s.groupRepo.SearchUserGroups(userID, query)
-	if err != nil {
-		return nil, errors.New("failed to search groups")
-	}
-
-	groupDTOs := make([]models.GroupDTO, len(groups))
-	for i, group := range groups {
-		memberCount, _ := s.groupRepo.GetMemberCount(group.ID)
-		creator, _ := s.userRepo.GetUserByID(group.CreatedBy)
-		creatorName := ""
-		if creator != nil {
-			creatorName = creator.Username
+	// Determine pagination info
+	page := 1
+	pageSize := 50
+	if filter.PageInfo != nil {
+		if filter.PageInfo.Page > 0 {
+			page = filter.PageInfo.Page
 		}
-
-		groupDTOs[i] = models.GroupDTO{
-			ID:          group.ID,
-			Name:        group.Name,
-			Description: group.Description,
-			CreatedBy:   group.CreatedBy,
-			CreatorName: creatorName,
-			MemberCount: int(memberCount),
-			CreatedAt:   group.CreatedAt.Format(time.RFC3339),
+		if filter.PageInfo.PageSize > 0 {
+			pageSize = filter.PageInfo.PageSize
 		}
 	}
 
-	return groupDTOs, nil
+	return &models.GroupFilterResponse{
+		Groups:     groupDTOs,
+		TotalCount: totalCount,
+		Page:       page,
+		PageSize:   pageSize,
+	}, nil
 }
 
 // UpdateGroup updates a group's name and/or description

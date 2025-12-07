@@ -54,16 +54,10 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 		groups.Use(middleware.AuthMiddleware())
 		{
 			// Create a new group
-			groups.POST("", groupController.CreateGroup)
+			groups.POST("/create", groupController.CreateGroup)
 
-			// Get all groups for current user
-			groups.GET("", groupController.GetUserGroups)
-
-			// Search user's groups (must be before /:id to avoid conflict)
-			groups.GET("/search", groupController.SearchUserGroups)
-
-			// Search available groups to join
-			groups.GET("/search/available", groupController.SearchAvailableGroups)
+			// Filter, search and paginate groups (consolidated endpoint)
+			groups.POST("", groupController.FilterGroups)
 
 			// Get group details
 			groups.GET("/:id", groupController.GetGroup)

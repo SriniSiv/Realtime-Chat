@@ -78,6 +78,23 @@ type UserFilterResponse struct {
 	PageSize   int              `json:"page_size"`
 }
 
+// GroupFilterRequest for filtering/searching groups
+type GroupFilterRequest struct {
+	PageInfo      *Pagination      `json:"page_info"`
+	SearchString  string           `json:"search_text"`
+	Sorting       *SortingCriteria `json:"sort"`
+	Filters       []FilterCriteria `json:"selected_filters"`
+	AvailableOnly bool             `json:"available_only"` // If true, return groups user is NOT a member of
+}
+
+// GroupFilterResponse for paginated group results
+type GroupFilterResponse struct {
+	Groups     []GroupDTO `json:"groups"`
+	TotalCount int64      `json:"total_count"`
+	Page       int        `json:"page"`
+	PageSize   int        `json:"page_size"`
+}
+
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error string `json:"error"`
