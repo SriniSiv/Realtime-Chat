@@ -42,11 +42,6 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 			// Filter, search and paginate users with online status (consolidated endpoint)
 			chat.POST("/users", userController.FilterUsers)
 
-			// Legacy endpoints (kept for backward compatibility)
-			chat.GET("/online-users", userController.GetOnlineUsers)
-			chat.GET("/users", userController.GetUsersWithConversation)
-			chat.GET("/users/search", userController.SearchUsers)
-
 			// Get chat history with a specific user
 			chat.GET("/history", messageController.GetChatHistory)
 

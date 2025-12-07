@@ -109,47 +109,6 @@ func (r *UserRepository) UsernameExists(username string) (bool, error) {
 	return count > 0, nil
 }
 
-// GetAllUsers retrieves all users from the database
-func (r *UserRepository) GetAllUsers() ([]models.User, error) {
-	var users []models.User
-	if err := r.db.Find(&users).Error; err != nil {
-		return nil, err
-	}
-	return users, nil
-}
-
-// GetUsersWithConversation retrieves users that the current user has had conversations with
-func (r *UserRepository) GetUsersWithConversation(currentUserID uuid.UUID) ([]models.User, error) {
-	var users []models.User
-
-	// Find all users that the current user has exchanged messages with (excluding broadcasts)
-	err := r.db.Raw(`
-		SELECT DISTINCT u.* FROM user_details u
-		WHERE u.id IN (
-			SELECT DISTINCT sender_id FROM chat_messages
-			WHERE receiver_id = ? AND type = 'direct'
-			UNION
-			SELECT DISTINCT receiver_id FROM chat_messages
-			WHERE sender_id = ? AND type = 'direct'
-		) AND u.id != ? AND u.deleted_at IS NULL
-	`, currentUserID, currentUserID, currentUserID).Scan(&users).Error
-
-	if err != nil {
-		return nil, err
-	}
-	return users, nil
-}
-
-// SearchUsers searches users by username or email
-func (r *UserRepository) SearchUsers(query string) ([]models.User, error) {
-	var users []models.User
-	searchPattern := "%" + query + "%"
-	if err := r.db.Where("username ILIKE ? OR email ILIKE ?", searchPattern, searchPattern).Find(&users).Error; err != nil {
-		return nil, err
-	}
-	return users, nil
-}
-
 // FilterUsers searches and filters users with pagination
 func (r *UserRepository) FilterUsers(filter *models.UserFilterRequest, excludeUserID uuid.UUID) ([]models.User, int64, error) {
 	var users []models.User

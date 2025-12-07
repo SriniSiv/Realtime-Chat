@@ -128,66 +128,6 @@ func (ctrl *UserController) GetUserDetails(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-// GetOnlineUsers handles GET /chat/online-users
-// @Summary Get online users
-// @Description Get list of currently online users
-// @Router /chat/online-users [get]
-func (ctrl *UserController) GetOnlineUsers(c *gin.Context) {
-	onlineIDs := ctrl.service.GetOnlineUserIDs()
-	c.JSON(http.StatusOK, gin.H{
-		"online_users": onlineIDs,
-		"count":        len(onlineIDs),
-	})
-}
-
-// GetUsersWithConversation handles GET /chat/users
-// @Summary Get users with conversation history
-// @Description Get list of users current user has had conversations with (like Slack DM sidebar)
-// @Router /chat/users [get]
-func (ctrl *UserController) GetUsersWithConversation(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error: "user not authenticated",
-		})
-		return
-	}
-
-	users, err := ctrl.service.GetUsersWithConversationAndStatus(userID.(uuid.UUID))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: "failed to fetch users",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"users": users,
-		"count": len(users),
-	})
-}
-
-// SearchUsers handles GET /chat/users/search
-// @Summary Search users
-// @Description Search users by username or email with online status
-// @Router /chat/users/search [get]
-func (ctrl *UserController) SearchUsers(c *gin.Context) {
-	query := c.Query("q")
-
-	users, err := ctrl.service.SearchUsersWithStatus(query)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: "failed to search users",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"users": users,
-		"count": len(users),
-	})
-}
-
 // FilterUsers handles POST /chat/users
 // @Summary Filter and search users
 // @Description Filter, search and paginate users with online status

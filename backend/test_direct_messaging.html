@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Messaging Test - Realtime Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin-bottom: 10px;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background: #10b981;
+        }
+        .status.disconnected {
+            background: #ef4444;
+        }
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 600px;
+        }
+        .sidebar {
+            background: #f3f4f6;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 15px;
+            background: #e5e7eb;
+            font-weight: bold;
+            border-bottom: 1px solid #d1d5db;
+        }
+        .online-users {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .user-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .user-item:hover {
+            background: #e0e7ff;
+        }
+        .user-item.selected {
+            background: #818cf8;
+            color: white;
+            border-color: #6366f1;
+        }
+        .user-item .email {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .user-item .id {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            padding: 15px 20px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: bold;
+        }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafafa;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 10px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .message.sent {
+            background: #818cf8;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        .message.received {
+            background: white;
+            border: 1px solid #e5e7eb;
+        }
+        .message.system {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            margin: 10px auto;
+            text-align: center;
+            max-width: 90%;
+            font-size: 13px;
+        }
+        .message .sender {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+        .message .time {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"], input[type="password"] {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #818cf8;
+        }
+        button {
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .login-section {
+            padding: 20px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .login-section h3 {
+            margin-bottom: 15px;
+        }
+        .refresh-btn {
+            background: #10b981;
+            padding: 8px 15px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Realtime Chat - Direct Messaging Test</h1>
+            <p>Test user-to-user communication</p>
+            <div class="status disconnected" id="status">Disconnected</div>
+        </div>
+
+        <div class="login-section">
+            <h3>Login</h3>
+            <div class="input-group">
+                <input type="text" id="email" placeholder="Email (e.g., user1@test.com)" value="user1@test.com">
+                <input type="password" id="password" placeholder="Password" value="password123">
+                <button onclick="login()">Login</button>
+                <button onclick="connect()" id="connectBtn" disabled>Connect WebSocket</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    Online Users
+                    <button class="refresh-btn" onclick="loadOnlineUsers()" style="float: right;">Refresh</button>
+                </div>
+                <div class="online-users" id="onlineUsers">
+                    <p style="padding: 20px; text-align: center; color: #6b7280;">
+                        Connect to see online users
+                    </p>
+                </div>
+            </div>
+
+            <div class="chat-area">
+                <div class="chat-header" id="chatHeader">
+                    Select a user to start chatting
+                </div>
+                <div class="messages" id="messages"></div>
+                <div class="input-area">
+                    <div class="input-group">
+                        <input type="text" id="messageInput" placeholder="Type your message..." disabled>
+                        <button onclick="sendMessage()" id="sendBtn" disabled>Send</button>
+                        <button onclick="sendBroadcast()" id="broadcastBtn" disabled>Broadcast to All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let accessToken = null;
+        let currentUserId = null;
+        let currentUserEmail = null;
+        let selectedRecipient = null;
+
+        function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            fetch('http://localhost:8080/api/realtime-chat/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.access_token) {
+                    accessToken = data.access_token;
+                    currentUserId = data.user.id;
+                    currentUserEmail = data.user.email;
+                    document.getElementById('connectBtn').disabled = false;
+                    addSystemMessage('✅ Logged in as ' + email);
+                } else {
+                    addSystemMessage('❌ Login failed: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => addSystemMessage('❌ Login error: ' + err.message));
+        }
+
+        function connect() {
+            if (!accessToken) {
+                addSystemMessage('❌ Please login first');
+                return;
+            }
+
+            ws = new WebSocket('ws://localhost:8080/api/realtime-chat/ws?token=' + accessToken);
+
+            ws.onopen = () => {
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('messageInput').disabled = false;
+                addSystemMessage('✅ WebSocket connected');
+                loadOnlineUsers();
+            };
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                displayMessage(message);
+
+                // Refresh online users if it's a system message
+                if (message.type === 'system') {
+                    setTimeout(loadOnlineUsers, 500);
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('broadcastBtn').disabled = true;
+                addSystemMessage('❌ WebSocket disconnected');
+            };
+
+            ws.onerror = (error) => {
+                addSystemMessage('❌ WebSocket error occurred');
+            };
+        }
+
+        function loadOnlineUsers() {
+            if (!accessToken) return;
+
+            fetch('http://localhost:8080/api/realtime-chat/chat/online-users', {
+                headers: { 'Authorization': 'Bearer ' + accessToken }
+            })
+            .then(res => res.json())
+            .then(data => {
+                const container = document.getElementById('onlineUsers');
+                container.innerHTML = '';
+
+                if (data.online_users && data.online_users.length > 0) {
+                    for (const user of data.online_users) {
+                        if (user.id !== currentUserId) {
+                            const userDiv = document.createElement('div');
+                            userDiv.className = 'user-item';
+                            userDiv.innerHTML = `
+                                <div class="email">${user.email}</div>
+                                <div class="id">${user.id}</div>
+                            `;
+                            userDiv.onclick = () => selectUser(user);
+                            container.appendChild(userDiv);
+                        }
+                    }
+                } else {
+                    container.innerHTML = '<p style="padding: 20px; text-align: center; color: #6b7280;">No other users online</p>';
+                }
+            })
+            .catch(err => console.error('Error loading users:', err));
+        }
+
+        function selectUser(user) {
+            selectedRecipient = user;
+            document.getElementById('chatHeader').textContent = 'Chat with ' + user.email;
+            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('broadcastBtn').disabled = false;
+
+            // Highlight selected user
+            const allUsers = document.querySelectorAll('.user-item');
+            for (const item of allUsers) {
+                item.classList.remove('selected');
+            }
+            event.target.closest('.user-item').classList.add('selected');
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+
+            if (!content || !selectedRecipient) return;
+
+            const message = {
+                to: selectedRecipient.id,
+                content: content,
+                type: 'direct'
+            };
+
+            ws.send(JSON.stringify(message));
+
+            // Display sent message
+            displaySentMessage(content, selectedRecipient.email);
+            input.value = '';
+        }
+
+        function sendBroadcast() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+
+            if (!content) return;
+
+            const message = {
+                to: 'all',
+                content: content,
+                type: 'broadcast'
+            };
+
+            ws.send(JSON.stringify(message));
+
+            // Display sent message
+            displaySentMessage(content, 'Everyone');
+            input.value = '';
+        }
+
+        function displayMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+
+            if (message.type === 'system') {
+                messageDiv.className = 'message system';
+                messageDiv.textContent = message.content;
+            } else {
+                messageDiv.className = 'message received';
+                messageDiv.innerHTML = `
+                    <div class="sender">From: ${message.from_email}</div>
+                    <div>${message.content}</div>
+                    <div class="time">${new Date(message.timestamp).toLocaleTimeString()}</div>
+                `;
+            }
+
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function displaySentMessage(content, recipient) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message sent';
+            messageDiv.innerHTML = `
+                <div class="sender">To: ${recipient}</div>
+                <div>${content}</div>
+                <div class="time">${new Date().toLocaleTimeString()}</div>
+            `;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message system';
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Allow Enter key to send message
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('messageInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
