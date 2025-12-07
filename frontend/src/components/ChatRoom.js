@@ -7,10 +7,12 @@ import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import CreateGroupModal from './CreateGroupModal';
 import AddMembersModal from './AddMembersModal';
+import EditProfileModal from './EditProfileModal';
+import EditGroupModal from './EditGroupModal';
 import './ChatRoom.css';
 
 const ChatRoom = () => {
-  const { user, logout, getValidAccessToken } = useAuth();
+  const { user, logout, getValidAccessToken, updateUser } = useAuth();
   const [messages, setMessages] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -21,6 +23,8 @@ const ChatRoom = () => {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showAddMembers, setShowAddMembers] = useState(false);
   const [addMembersGroup, setAddMembersGroup] = useState(null);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showEditGroup, setShowEditGroup] = useState(false);
   const [activeTab, setActiveTab] = useState('dms'); // 'dms' or 'groups'
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -329,6 +333,21 @@ const ChatRoom = () => {
     }
   };
 
+  // Handle edit group
+  const handleEditGroup = () => {
+    if (selectedGroup) {
+      setShowEditGroup(true);
+    }
+  };
+
+  // Handle group updated
+  const handleGroupUpdated = (updatedGroup) => {
+    setGroups(prev => prev.map(g => g.id === updatedGroup.id ? updatedGroup : g));
+    if (selectedGroup?.id === updatedGroup.id) {
+      setSelectedGroup(updatedGroup);
+    }
+  };
+
   const getConnectionStatusText = () => {
     if (connectionStatus === 'connected') return '● Connected';
     if (connectionStatus === 'connecting') return '○ Connecting...';
@@ -351,7 +370,9 @@ const ChatRoom = () => {
           </span>
         </div>
         <div className="header-right">
-          <span className="user-email">{user.email}</span>
+          <button className="user-info-btn" onClick={() => setShowEditProfile(true)} title="Click to edit username">
+            {user.username || user.email} ✏️
+          </button>
           <button onClick={logout} className="logout-btn">Logout</button>
         </div>
       </header>
@@ -396,6 +417,11 @@ const ChatRoom = () => {
         <div className="chat-main">
           <div className="chat-title">
             {getChatTitle()}
+            {selectedGroup && (
+              <button className="edit-group-btn" onClick={handleEditGroup} title="Edit group">
+                ✏️
+              </button>
+            )}
             {loadingHistory && <span className="loading-indicator"> Loading...</span>}
           </div>
           <MessageList
@@ -429,6 +455,24 @@ const ChatRoom = () => {
             setAddMembersGroup(null);
           }}
           onMembersAdded={handleMembersAdded}
+        />
+      )}
+
+      {showEditProfile && (
+        <EditProfileModal
+          currentUsername={user.username}
+          onClose={() => setShowEditProfile(false)}
+          onUpdate={(updatedUserData) => {
+            updateUser(updatedUserData);
+          }}
+        />
+      )}
+
+      {showEditGroup && selectedGroup && (
+        <EditGroupModal
+          group={selectedGroup}
+          onClose={() => setShowEditGroup(false)}
+          onUpdate={handleGroupUpdated}
         />
       )}
     </div>

@@ -36,6 +36,18 @@ export const authAPI = {
     });
     return response.json();
   },
+
+  updateUsername: async (accessToken, username) => {
+    const response = await fetch(`${API_BASE_URL}/auth/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ username }),
+    });
+    return response.json();
+  },
 };
 
 // Chat API calls
@@ -180,6 +192,19 @@ export const groupAPI = {
         'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ member_ids: [userId] }),
+    });
+    return response.json();
+  },
+
+  // Update group name/description
+  updateGroup: async (accessToken, groupId, name, description) => {
+    const response = await fetch(`${API_BASE_URL}/groups/${groupId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ name, description }),
     });
     return response.json();
   },
