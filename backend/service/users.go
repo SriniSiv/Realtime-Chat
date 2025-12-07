@@ -11,14 +11,49 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// OnlineUserInfo represents a user that is currently online
+type OnlineUserInfo struct {
+	ID    uuid.UUID
+	Email string
+}
+
+// OnlineUsersProvider interface for getting online users (implemented by websocket.Hub)
+type OnlineUsersProvider interface {
+	GetOnlineUserIDs() []uuid.UUID
+}
+
 // UserService handles business logic for user operations
 type UserService struct {
-	repo *db.UserRepository
+	repo                *db.UserRepository
+	onlineUsersProvider OnlineUsersProvider
 }
 
 // NewUserService creates a new user service
 func NewUserService(repo *db.UserRepository) *UserService {
 	return &UserService{repo: repo}
+}
+
+// SetOnlineUsersProvider sets the provider for online users (e.g., websocket hub)
+func (s *UserService) SetOnlineUsersProvider(provider OnlineUsersProvider) {
+	s.onlineUsersProvider = provider
+}
+
+// GetOnlineUserIDs returns the IDs of all online users
+func (s *UserService) GetOnlineUserIDs() []uuid.UUID {
+	if s.onlineUsersProvider == nil {
+		return []uuid.UUID{}
+	}
+	return s.onlineUsersProvider.GetOnlineUserIDs()
+}
+
+// buildOnlineMap creates a map of online user IDs for quick lookup
+func (s *UserService) buildOnlineMap() map[uuid.UUID]bool {
+	onlineMap := make(map[uuid.UUID]bool)
+	onlineIDs := s.GetOnlineUserIDs()
+	for _, id := range onlineIDs {
+		onlineMap[id] = true
+	}
+	return onlineMap
 }
 
 // Register creates a new user account
@@ -214,4 +249,55 @@ func (s *UserService) SearchUsers(query string) ([]models.UserDTO, error) {
 	}
 
 	return userDTOs, nil
+}
+
+// GetUsersWithConversationAndStatus retrieves users with conversation history including online status
+func (s *UserService) GetUsersWithConversationAndStatus(currentUserID uuid.UUID) ([]models.UserWithStatus, error) {
+	users, err := s.GetUsersWithConversation(currentUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	onlineMap := s.buildOnlineMap()
+
+	usersWithStatus := make([]models.UserWithStatus, len(users))
+	for i, user := range users {
+		usersWithStatus[i] = models.UserWithStatus{
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+			IsOnline: onlineMap[user.ID],
+		}
+	}
+
+	return usersWithStatus, nil
+}
+
+// SearchUsersWithStatus searches users and returns with online status
+func (s *UserService) SearchUsersWithStatus(query string) ([]models.UserWithStatus, error) {
+	var users []models.UserDTO
+	var err error
+
+	if query == "" {
+		users, err = s.GetAllUsers()
+	} else {
+		users, err = s.SearchUsers(query)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	onlineMap := s.buildOnlineMap()
+
+	usersWithStatus := make([]models.UserWithStatus, len(users))
+	for i, user := range users {
+		usersWithStatus[i] = models.UserWithStatus{
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+			IsOnline: onlineMap[user.ID],
+		}
+	}
+
+	return usersWithStatus, nil
 }

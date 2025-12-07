@@ -3,16 +3,13 @@ package routes
 import (
 	"backend/controller"
 	"backend/middleware"
-	"backend/models"
-	"backend/service"
 	"backend/websocket"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.Engine, userController *controller.UserController, messageController *controller.MessageController, groupController *controller.GroupController, hub *websocket.Hub, userService *service.UserService, groupService *service.GroupService) {
+func SetupRoutes(router *gin.Engine, userController *controller.UserController, messageController *controller.MessageController, groupController *controller.GroupController, hub *websocket.Hub) {
 	// API v1 group
 	api := router.Group("/api/realtime-chat")
 	{
@@ -42,102 +39,13 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 		chat.Use(middleware.AuthMiddleware())
 		{
 			// Get list of online users only
-			chat.GET("/online-users", func(c *gin.Context) {
-				users := hub.GetOnlineUsers()
-				c.JSON(200, gin.H{
-					"online_users": users,
-					"count":        len(users),
-				})
-			})
+			chat.GET("/online-users", userController.GetOnlineUsers)
 
 			// Get users with conversation history (like Slack DM sidebar)
-			chat.GET("/users", func(c *gin.Context) {
-				// Get current user ID from context (set by auth middleware)
-				currentUserID, exists := c.Get("user_id")
-				if !exists {
-					c.JSON(401, gin.H{"error": "user not authenticated"})
-					return
-				}
-
-				userID, ok := currentUserID.(uuid.UUID)
-				if !ok {
-					c.JSON(500, gin.H{"error": "invalid user ID"})
-					return
-				}
-
-				// Get users the current user has had conversations with
-				conversationUsers, err := userService.GetUsersWithConversation(userID)
-				if err != nil {
-					c.JSON(500, gin.H{"error": "failed to fetch users"})
-					return
-				}
-
-				// Get online users from hub
-				onlineUsers := hub.GetOnlineUsers()
-				onlineMap := make(map[uuid.UUID]bool)
-				for _, u := range onlineUsers {
-					onlineMap[u.ID] = true
-				}
-
-				// Build response with status
-				usersWithStatus := make([]models.UserWithStatus, len(conversationUsers))
-				for i, user := range conversationUsers {
-					usersWithStatus[i] = models.UserWithStatus{
-						ID:       user.ID,
-						Username: user.Username,
-						Email:    user.Email,
-						IsOnline: onlineMap[user.ID],
-					}
-				}
-
-				c.JSON(200, gin.H{
-					"users": usersWithStatus,
-					"count": len(usersWithStatus),
-				})
-			})
+			chat.GET("/users", userController.GetUsersWithConversation)
 
 			// Search users by username or email
-			chat.GET("/users/search", func(c *gin.Context) {
-				query := c.Query("q")
-
-				var users []models.UserDTO
-				var err error
-
-				if query == "" {
-					// Return all users when query is empty
-					users, err = userService.GetAllUsers()
-				} else {
-					// Search users in database
-					users, err = userService.SearchUsers(query)
-				}
-				if err != nil {
-					c.JSON(500, gin.H{"error": "failed to search users"})
-					return
-				}
-
-				// Get online users from hub
-				onlineUsers := hub.GetOnlineUsers()
-				onlineMap := make(map[uuid.UUID]bool)
-				for _, u := range onlineUsers {
-					onlineMap[u.ID] = true
-				}
-
-				// Build response with status
-				usersWithStatus := make([]models.UserWithStatus, len(users))
-				for i, user := range users {
-					usersWithStatus[i] = models.UserWithStatus{
-						ID:       user.ID,
-						Username: user.Username,
-						Email:    user.Email,
-						IsOnline: onlineMap[user.ID],
-					}
-				}
-
-				c.JSON(200, gin.H{
-					"users": usersWithStatus,
-					"count": len(usersWithStatus),
-				})
-			})
+			chat.GET("/users/search", userController.SearchUsers)
 
 			// Get chat history with a specific user
 			chat.GET("/history", messageController.GetChatHistory)

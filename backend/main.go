@@ -53,6 +53,9 @@ func main() {
 	hub.SetGroupMemberProvider(groupService)
 	go hub.Run()
 
+	// Set online users provider for user service (for online status in API responses)
+	userService.SetOnlineUsersProvider(hub)
+
 	// Get instance ID from environment
 	instanceID := env.InstanceID
 	log.Printf("Instance ID: %s", instanceID)
@@ -145,7 +148,7 @@ func main() {
 	}))
 
 	// Setup routes (now includes WebSocket)
-	routes.SetupRoutes(router, userController, messageController, groupController, hub, userService, groupService)
+	routes.SetupRoutes(router, userController, messageController, groupController, hub)
 
 	// Handle graceful shutdown
 	go func() {

@@ -332,6 +332,18 @@ func (h *Hub) GetOnlineUsers() []OnlineUser {
 	return users
 }
 
+// GetOnlineUserIDs returns IDs of all online users (implements OnlineUsersProvider interface)
+func (h *Hub) GetOnlineUserIDs() []uuid.UUID {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	ids := make([]uuid.UUID, 0, len(h.clients))
+	for _, client := range h.clients {
+		ids = append(ids, client.ID)
+	}
+	return ids
+}
+
 // ParseIncomingMessage parses a raw message from client
 func ParseIncomingMessage(rawMessage []byte, senderID uuid.UUID) (*Message, error) {
 	var incoming IncomingMessage
