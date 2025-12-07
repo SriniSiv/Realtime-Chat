@@ -25,6 +25,12 @@ func NewGroupService(groupRepo *db.GroupRepository, userRepo *db.UserRepository)
 
 // CreateGroup creates a new group and adds the creator as admin
 func (s *GroupService) CreateGroup(creatorID uuid.UUID, name, description string, memberIDs []uuid.UUID) (*models.GroupDTO, error) {
+	// Check for duplicate group name
+	existingGroup, _ := s.groupRepo.GetGroupByName(name)
+	if existingGroup != nil {
+		return nil, errors.New("a group with this name already exists")
+	}
+
 	// Create the group
 	group := &models.Group{
 		Name:        name,
@@ -187,5 +193,65 @@ func (s *GroupService) IsMember(groupID, userID uuid.UUID) (bool, error) {
 // GetGroupMemberIDs returns all member IDs for a group
 func (s *GroupService) GetGroupMemberIDs(groupID uuid.UUID) ([]uuid.UUID, error) {
 	return s.groupRepo.GetGroupMemberIDs(groupID)
+}
+
+// SearchAvailableGroups searches for groups the user is NOT a member of
+func (s *GroupService) SearchAvailableGroups(userID uuid.UUID, query string) ([]models.GroupDTO, error) {
+	groups, err := s.groupRepo.SearchAvailableGroups(userID, query)
+	if err != nil {
+		return nil, errors.New("failed to search groups")
+	}
+
+	groupDTOs := make([]models.GroupDTO, len(groups))
+	for i, group := range groups {
+		memberCount, _ := s.groupRepo.GetMemberCount(group.ID)
+		creator, _ := s.userRepo.GetUserByID(group.CreatedBy)
+		creatorName := ""
+		if creator != nil {
+			creatorName = creator.Username
+		}
+
+		groupDTOs[i] = models.GroupDTO{
+			ID:          group.ID,
+			Name:        group.Name,
+			Description: group.Description,
+			CreatedBy:   group.CreatedBy,
+			CreatorName: creatorName,
+			MemberCount: int(memberCount),
+			CreatedAt:   group.CreatedAt.Format(time.RFC3339),
+		}
+	}
+
+	return groupDTOs, nil
+}
+
+// SearchUserGroups searches for groups the user IS a member of
+func (s *GroupService) SearchUserGroups(userID uuid.UUID, query string) ([]models.GroupDTO, error) {
+	groups, err := s.groupRepo.SearchUserGroups(userID, query)
+	if err != nil {
+		return nil, errors.New("failed to search groups")
+	}
+
+	groupDTOs := make([]models.GroupDTO, len(groups))
+	for i, group := range groups {
+		memberCount, _ := s.groupRepo.GetMemberCount(group.ID)
+		creator, _ := s.userRepo.GetUserByID(group.CreatedBy)
+		creatorName := ""
+		if creator != nil {
+			creatorName = creator.Username
+		}
+
+		groupDTOs[i] = models.GroupDTO{
+			ID:          group.ID,
+			Name:        group.Name,
+			Description: group.Description,
+			CreatedBy:   group.CreatedBy,
+			CreatorName: creatorName,
+			MemberCount: int(memberCount),
+			CreatedAt:   group.CreatedAt.Format(time.RFC3339),
+		}
+	}
+
+	return groupDTOs, nil
 }
 

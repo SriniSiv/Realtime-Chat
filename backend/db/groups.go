@@ -109,3 +109,43 @@ func (r *GroupRepository) GetGroupMemberIDs(groupID uuid.UUID) ([]uuid.UUID, err
 	return memberIDs, err
 }
 
+// GetGroupByName checks if a group with the given name exists
+func (r *GroupRepository) GetGroupByName(name string) (*models.Group, error) {
+	var group models.Group
+	if err := r.db.Where("LOWER(name) = LOWER(?) AND deleted_at IS NULL", name).First(&group).Error; err != nil {
+		return nil, err
+	}
+	return &group, nil
+}
+
+// SearchAvailableGroups searches for groups the user is NOT a member of
+func (r *GroupRepository) SearchAvailableGroups(userID uuid.UUID, query string) ([]models.Group, error) {
+	var groups []models.Group
+	searchPattern := "%" + query + "%"
+	err := r.db.Raw(`
+		SELECT g.* FROM chat_groups g
+		WHERE g.id NOT IN (
+			SELECT gm.group_id FROM group_members gm WHERE gm.user_id = ?
+		)
+		AND g.deleted_at IS NULL
+		AND (LOWER(g.name) LIKE LOWER(?) OR LOWER(g.description) LIKE LOWER(?))
+		ORDER BY g.name ASC
+		LIMIT 20
+	`, userID, searchPattern, searchPattern).Scan(&groups).Error
+	return groups, err
+}
+
+// SearchUserGroups searches for groups the user IS a member of
+func (r *GroupRepository) SearchUserGroups(userID uuid.UUID, query string) ([]models.Group, error) {
+	var groups []models.Group
+	searchPattern := "%" + query + "%"
+	err := r.db.Raw(`
+		SELECT g.* FROM chat_groups g
+		INNER JOIN group_members gm ON g.id = gm.group_id
+		WHERE gm.user_id = ? AND g.deleted_at IS NULL
+		AND (LOWER(g.name) LIKE LOWER(?) OR LOWER(g.description) LIKE LOWER(?))
+		ORDER BY g.updated_at DESC
+	`, userID, searchPattern, searchPattern).Scan(&groups).Error
+	return groups, err
+}
+

@@ -152,6 +152,12 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 			// Get all groups for current user
 			groups.GET("", groupController.GetUserGroups)
 
+			// Search user's groups (must be before /:id to avoid conflict)
+			groups.GET("/search", groupController.SearchUserGroups)
+
+			// Search available groups to join
+			groups.GET("/search/available", groupController.SearchAvailableGroups)
+
 			// Get group details
 			groups.GET("/:id", groupController.GetGroup)
 
