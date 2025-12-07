@@ -117,3 +117,13 @@ func (r *UserRepository) GetAllUsers() ([]models.User, error) {
 	}
 	return users, nil
 }
+
+// SearchUsers searches users by username or email
+func (r *UserRepository) SearchUsers(query string) ([]models.User, error) {
+	var users []models.User
+	searchPattern := "%" + query + "%"
+	if err := r.db.Where("username ILIKE ? OR email ILIKE ?", searchPattern, searchPattern).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
+}

@@ -177,3 +177,22 @@ func (s *UserService) GetAllUsers() ([]models.UserDTO, error) {
 
 	return userDTOs, nil
 }
+
+// SearchUsers searches users by username or email
+func (s *UserService) SearchUsers(query string) ([]models.UserDTO, error) {
+	users, err := s.repo.SearchUsers(query)
+	if err != nil {
+		return nil, errors.New("failed to search users")
+	}
+
+	userDTOs := make([]models.UserDTO, len(users))
+	for i, user := range users {
+		userDTOs[i] = models.UserDTO{
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+		}
+	}
+
+	return userDTOs, nil
+}

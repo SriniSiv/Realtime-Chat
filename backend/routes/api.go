@@ -83,6 +83,45 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 				})
 			})
 
+			// Search users by username or email
+			chat.GET("/users/search", func(c *gin.Context) {
+				query := c.Query("q")
+				if query == "" {
+					c.JSON(400, gin.H{"error": "search query 'q' is required"})
+					return
+				}
+
+				// Search users in database
+				users, err := userService.SearchUsers(query)
+				if err != nil {
+					c.JSON(500, gin.H{"error": "failed to search users"})
+					return
+				}
+
+				// Get online users from hub
+				onlineUsers := hub.GetOnlineUsers()
+				onlineMap := make(map[uuid.UUID]bool)
+				for _, u := range onlineUsers {
+					onlineMap[u.ID] = true
+				}
+
+				// Build response with status
+				usersWithStatus := make([]models.UserWithStatus, len(users))
+				for i, user := range users {
+					usersWithStatus[i] = models.UserWithStatus{
+						ID:       user.ID,
+						Username: user.Username,
+						Email:    user.Email,
+						IsOnline: onlineMap[user.ID],
+					}
+				}
+
+				c.JSON(200, gin.H{
+					"users": usersWithStatus,
+					"count": len(usersWithStatus),
+				})
+			})
+
 			// Get chat history with a specific user
 			chat.GET("/history", messageController.GetChatHistory)
 
