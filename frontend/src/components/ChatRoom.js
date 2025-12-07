@@ -9,7 +9,7 @@ import './ChatRoom.css';
 const ChatRoom = () => {
   const { user, logout, getValidAccessToken } = useAuth();
   const [messages, setMessages] = useState([]);
-  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -17,17 +17,19 @@ const ChatRoom = () => {
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
 
-  const fetchOnlineUsers = useCallback(async () => {
+  // Fetch all users with online/offline status (like Slack)
+  const fetchUsers = useCallback(async () => {
     try {
       const token = await getValidAccessToken();
       if (!token) return;
-      const response = await chatAPI.getOnlineUsers(token);
-      if (response.online_users) {
-        const filteredUsers = response.online_users.filter(u => u.id !== user.id);
-        setOnlineUsers(filteredUsers);
+      const response = await chatAPI.getAllUsers(token);
+      if (response.users) {
+        // Filter out current user
+        const filteredUsers = response.users.filter(u => u.id !== user.id);
+        setAllUsers(filteredUsers);
       }
     } catch (err) {
-      console.error('Failed to fetch online users:', err);
+      console.error('Failed to fetch users:', err);
     }
   }, [getValidAccessToken, user.id]);
 
@@ -112,7 +114,7 @@ const ChatRoom = () => {
       console.log('WebSocket connected');
       setConnectionStatus('connected');
       reconnectAttemptsRef.current = 0;
-      fetchOnlineUsers();
+      fetchUsers();
       fetchAllMessages(); // Load all messages on login
     };
 
@@ -120,9 +122,9 @@ const ChatRoom = () => {
       try {
         const message = JSON.parse(event.data);
 
-        // Don't add system messages (online/offline) to chat - already shown in sidebar
+        // Don't add system messages (online/offline) to chat - refresh user list instead
         if (message.type === 'system') {
-          setTimeout(fetchOnlineUsers, 500);
+          setTimeout(fetchUsers, 500);
           return;
         }
 
@@ -147,7 +149,7 @@ const ChatRoom = () => {
       console.error('WebSocket error:', error);
       setConnectionStatus('error');
     };
-  }, [getValidAccessToken, fetchOnlineUsers, fetchAllMessages]);
+  }, [getValidAccessToken, fetchUsers, fetchAllMessages]);
 
   useEffect(() => {
     connectWebSocket();
@@ -212,17 +214,17 @@ const ChatRoom = () => {
 
       <div className="chat-container">
         <UserList
-          users={onlineUsers}
+          users={allUsers}
           selectedUser={selectedUser}
           onSelectUser={handleSelectUser}
-          onRefresh={fetchOnlineUsers}
+          onRefresh={fetchUsers}
         />
         <div className="chat-main">
           <div className="chat-title">
             {selectedUser ? `Chat with ${selectedUser.email}` : 'Select a user to start chatting'}
             {loadingHistory && <span className="loading-indicator"> Loading...</span>}
           </div>
-          <MessageList messages={messages} currentUserId={user.id} />
+          <MessageList messages={messages} currentUserId={user.id} selectedUserId={selectedUser?.id} />
           <MessageInput
             onSend={sendMessage}
             selectedUser={selectedUser}

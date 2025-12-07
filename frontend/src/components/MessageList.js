@@ -1,11 +1,29 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 
-const MessageList = ({ messages, currentUserId }) => {
+const MessageList = ({ messages, currentUserId, selectedUserId }) => {
   const messagesEndRef = useRef(null);
+
+  // Filter messages for the selected conversation
+  const filteredMessages = useMemo(() => {
+    if (!selectedUserId) return [];
+
+    return messages.filter(msg => {
+      // Show broadcast messages
+      if (msg.type === 'broadcast') return true;
+
+      // Show messages between current user and selected user
+      const isFromSelected = msg.from === selectedUserId;
+      const isToSelected = msg.to === selectedUserId;
+      const isFromMe = msg.from === currentUserId;
+      const isToMe = msg.to === currentUserId;
+
+      return (isFromSelected && isToMe) || (isFromMe && isToSelected);
+    });
+  }, [messages, currentUserId, selectedUserId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [filteredMessages]);
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString([], { 
@@ -16,14 +34,14 @@ const MessageList = ({ messages, currentUserId }) => {
 
   return (
     <div className="message-list">
-      {messages.length === 0 ? (
+      {filteredMessages.length === 0 ? (
         <div className="no-messages">
           <div className="empty-icon">💬</div>
           <p>No messages yet</p>
           <small>Start a conversation!</small>
         </div>
       ) : (
-        messages.map((msg, index) => {
+        filteredMessages.map((msg, index) => {
           const isSent = msg.isSent || msg.from === currentUserId;
           const isSystem = msg.type === 'system';
 
