@@ -1,22 +1,15 @@
-// Package sdk provides a Golang SDK for Realtime Messaging/Streaming API.
+// Package sdk provides a simple Golang SDK for Realtime Messaging API.
 //
-// # Quick Start
+// Example:
 //
 //	client, _ := sdk.NewClient(sdk.Config{
 //	    APIKey:   "your-api-key",
-//	    Endpoint: "wss://example.com/realtime",
+//	    Endpoint: "ws://localhost:8080/ws",
 //	})
-//	client.OnMessage(func(msg sdk.Message) {
-//	    fmt.Println("Received:", msg.Content)
-//	})
+//	client.OnMessage(func(msg sdk.Message) { fmt.Println(msg.Content) })
 //	client.Connect()
-//	client.SendMessage("channel", "Hello!")
-//	defer client.Close()
-//
-// # Design Patterns Used
-//
-//   - Strategy Pattern: Transport interface for testability
-//   - Observer Pattern: OnMessage handler for real-time events
+//	client.SendMessage("user-id", "Hello!")
+//	client.Close()
 package sdk
 
 import (
@@ -29,34 +22,43 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// ERRORS
+// ============================================================================
+// Errors
+// ============================================================================
+
 var (
-	ErrNotConnected    = errors.New("sdk: not connected")
-	ErrMissingAPIKey   = errors.New("sdk: missing API key")
-	ErrMissingEndpoint = errors.New("sdk: missing endpoint")
+	ErrNotConnected    = errors.New("not connected to server")
+	ErrMissingAPIKey   = errors.New("API key is required")
+	ErrMissingEndpoint = errors.New("endpoint URL is required")
 )
 
-// TYPES
+// ============================================================================
+// Config - SDK configuration
+// ============================================================================
 
-// Config holds SDK configuration
 type Config struct {
 	APIKey   string // JWT token for authentication
-	Endpoint string // WebSocket URL (e.g., wss://example.com/ws)
+	Endpoint string // WebSocket URL (e.g., ws://localhost:8080/ws)
 }
 
-// Message represents a chat message or stream event
+// ============================================================================
+// Message - Chat message structure
+// ============================================================================
+
 type Message struct {
 	From    string    `json:"from,omitempty"`
 	To      string    `json:"to,omitempty"`
 	GroupID string    `json:"group_id,omitempty"`
 	Content string    `json:"content"`
-	Type    string    `json:"type"` // "direct", "group", "broadcast"
+	Type    string    `json:"type"`
 	Time    time.Time `json:"timestamp,omitempty"`
 }
 
-// TRANSPORT INTERFACE (STRATEGY PATTERN)
+// ============================================================================
+// Transport - Strategy Pattern for connection handling
+// ============================================================================
 
-// Transport defines connection strategy (Strategy Pattern)
+// Transport interface allows swapping connection implementations (e.g., for testing)
 type Transport interface {
 	Connect(endpoint, token string) error
 	Send(data []byte) error
@@ -64,59 +66,68 @@ type Transport interface {
 	Close() error
 }
 
-// WebSocketTransport is the default transport implementation
-type WebSocketTransport struct {
+// wsTransport implements Transport using WebSocket
+type wsTransport struct {
 	conn *websocket.Conn
 	mu   sync.Mutex
 }
 
-func (t *WebSocketTransport) Connect(endpoint, token string) error {
+func (t *wsTransport) Connect(endpoint, token string) error {
+	// Add token to URL query
 	u, _ := url.Parse(endpoint)
 	q := u.Query()
 	q.Set("token", token)
 	u.RawQuery = q.Encode()
 
+	// Connect via WebSocket
 	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		return err
 	}
+
 	t.mu.Lock()
 	t.conn = conn
 	t.mu.Unlock()
 	return nil
 }
 
-func (t *WebSocketTransport) Send(data []byte) error {
+func (t *wsTransport) Send(data []byte) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	if t.conn == nil {
 		return ErrNotConnected
 	}
 	return t.conn.WriteMessage(websocket.TextMessage, data)
 }
 
-func (t *WebSocketTransport) Receive() ([]byte, error) {
+func (t *wsTransport) Receive() ([]byte, error) {
 	_, data, err := t.conn.ReadMessage()
 	return data, err
 }
 
-func (t *WebSocketTransport) Close() error {
+func (t *wsTransport) Close() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.conn != nil {
-		t.conn.WriteMessage(websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-		return t.conn.Close()
+
+	if t.conn == nil {
+		return nil
 	}
-	return nil
+
+	// Send close message before disconnecting
+	t.conn.WriteMessage(websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	return t.conn.Close()
 }
 
-// CLIENT (OBSERVER PATTERN)
+// ============================================================================
+// Client - Main SDK client
+// ============================================================================
 
-// MessageHandler is callback for incoming messages (Observer Pattern)
+// MessageHandler is called when a message is received (Observer Pattern)
 type MessageHandler func(msg Message)
 
-// Client is the SDK client
+// Client provides methods to interact with the Realtime Messaging API
 type Client struct {
 	config    Config
 	transport Transport
@@ -126,89 +137,109 @@ type Client struct {
 }
 
 // NewClient creates a new SDK client
-//
-// Usage:
-//
-//	client, _ := sdk.NewClient(sdk.Config{
-//	    APIKey:   "my-api-key",
-//	    Endpoint: "wss://example.com/realtime",
-//	})
 func NewClient(config Config) (*Client, error) {
+	// Validate config
 	if config.APIKey == "" {
 		return nil, ErrMissingAPIKey
 	}
 	if config.Endpoint == "" {
 		return nil, ErrMissingEndpoint
 	}
+
 	return &Client{
 		config:    config,
-		transport: &WebSocketTransport{},
+		transport: &wsTransport{},
 		done:      make(chan struct{}),
 	}, nil
 }
 
-// Connect establishes connection to the server
+// Connect establishes WebSocket connection to the server
 func (c *Client) Connect() error {
-	if err := c.transport.Connect(c.config.Endpoint, c.config.APIKey); err != nil {
+	err := c.transport.Connect(c.config.Endpoint, c.config.APIKey)
+	if err != nil {
 		return err
 	}
-	go c.readLoop()
+
+	// Start listening for messages in background
+	go c.listenForMessages()
 	return nil
 }
 
-// OnMessage registers a message handler (Observer Pattern)
+// OnMessage registers a handler for incoming messages (Observer Pattern)
 func (c *Client) OnMessage(handler MessageHandler) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.handler = handler
+	c.mu.Unlock()
 }
 
-// SendMessage sends a message to a channel/user
-//
-// Usage:
-//
-//	err := sdk.SendMessage("general", "Hello, world!")
+// SendMessage sends a direct message to a user
 func (c *Client) SendMessage(to, content string) error {
-	msg := map[string]string{"to": to, "content": content, "type": "direct"}
+	msg := Message{
+		To:      to,
+		Content: content,
+		Type:    "direct",
+	}
 	data, _ := json.Marshal(msg)
 	return c.transport.Send(data)
 }
 
-// Close disconnects gracefully
-//
-// Usage:
-//
-//	sdk.Close()
+// SendGroupMessage sends a message to a group
+func (c *Client) SendGroupMessage(groupID, content string) error {
+	msg := Message{
+		GroupID: groupID,
+		Content: content,
+		Type:    "group",
+	}
+	data, _ := json.Marshal(msg)
+	return c.transport.Send(data)
+}
+
+// Close gracefully disconnects from the server
 func (c *Client) Close() error {
 	close(c.done)
 	return c.transport.Close()
 }
 
-// readLoop handles incoming messages (concurrency)
-func (c *Client) readLoop() {
+// SetTransport sets a custom transport (useful for testing with mock)
+func (c *Client) SetTransport(t Transport) {
+	c.transport = t
+}
+
+// ============================================================================
+// Internal methods
+// ============================================================================
+
+// listenForMessages runs in background and handles incoming messages
+func (c *Client) listenForMessages() {
 	for {
 		select {
 		case <-c.done:
 			return
 		default:
+			// Read message from server
 			data, err := c.transport.Receive()
 			if err != nil {
 				return
 			}
-			c.mu.RLock()
-			h := c.handler
-			c.mu.RUnlock()
-			if h != nil {
-				var msg Message
-				if json.Unmarshal(data, &msg) == nil {
-					go h(msg) // Non-blocking handler call
-				}
-			}
+
+			// Parse and dispatch to handler
+			c.dispatchMessage(data)
 		}
 	}
 }
 
-// SetTransport allows setting custom transport (for testing)
-func (c *Client) SetTransport(t Transport) {
-	c.transport = t
+// dispatchMessage parses message and calls the handler
+func (c *Client) dispatchMessage(data []byte) {
+	c.mu.RLock()
+	handler := c.handler
+	c.mu.RUnlock()
+
+	if handler == nil {
+		return
+	}
+
+	var msg Message
+	if json.Unmarshal(data, &msg) == nil {
+		go handler(msg) // Non-blocking call
+	}
 }
