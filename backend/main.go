@@ -28,8 +28,8 @@ func main() {
 	// Initialize database
 	database := config.InitDB()
 
-	// Auto-migrate new tables
-	database.AutoMigrate(&models.Group{}, &models.GroupMember{})
+	// Auto-migrate new tables and update existing ones
+	database.AutoMigrate(&models.ChatMessage{}, &models.Group{}, &models.GroupMember{})
 
 	// Initialize repository layer
 	userRepo := db.NewUserRepository(database)
