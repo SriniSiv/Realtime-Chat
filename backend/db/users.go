@@ -149,3 +149,17 @@ func (r *UserRepository) SearchUsers(query string) ([]models.User, error) {
 	}
 	return users, nil
 }
+
+// UpdateUsername updates a user's username
+func (r *UserRepository) UpdateUsername(userID uuid.UUID, username string) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("username", username).Error
+}
+
+// UsernameExistsExcludingUser checks if a username exists for a user other than the given userID
+func (r *UserRepository) UsernameExistsExcludingUser(username string, userID uuid.UUID) (bool, error) {
+	var count int64
+	if err := r.db.Model(&models.User{}).Where("username = ? AND id != ?", username, userID).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

@@ -118,6 +118,30 @@ func (r *GroupRepository) GetGroupByName(name string) (*models.Group, error) {
 	return &group, nil
 }
 
+// GroupNameExistsExcluding checks if a group name exists for a group other than the given groupID
+func (r *GroupRepository) GroupNameExistsExcluding(name string, groupID uuid.UUID) (bool, error) {
+	var count int64
+	if err := r.db.Model(&models.Group{}).Where("LOWER(name) = LOWER(?) AND id != ? AND deleted_at IS NULL", name, groupID).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// UpdateGroupNameAndDescription updates a group's name and description
+func (r *GroupRepository) UpdateGroupNameAndDescription(groupID uuid.UUID, name, description string) error {
+	updates := map[string]interface{}{}
+	if name != "" {
+		updates["name"] = name
+	}
+	if description != "" {
+		updates["description"] = description
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	return r.db.Model(&models.Group{}).Where("id = ?", groupID).Updates(updates).Error
+}
+
 // SearchAvailableGroups searches for groups the user is NOT a member of
 func (r *GroupRepository) SearchAvailableGroups(userID uuid.UUID, query string) ([]models.Group, error) {
 	var groups []models.Group

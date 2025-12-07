@@ -253,3 +253,34 @@ func (s *GroupService) SearchUserGroups(userID uuid.UUID, query string) ([]model
 	return groupDTOs, nil
 }
 
+// UpdateGroup updates a group's name and/or description
+func (s *GroupService) UpdateGroup(groupID uuid.UUID, requestingUserID uuid.UUID, name, description string) (*models.GroupDTO, error) {
+	// Check if the requesting user is a member of the group
+	isMember, err := s.groupRepo.IsMember(groupID, requestingUserID)
+	if err != nil {
+		return nil, errors.New("failed to verify membership")
+	}
+	if !isMember {
+		return nil, errors.New("you are not a member of this group")
+	}
+
+	// If updating name, check for duplicates
+	if name != "" {
+		exists, err := s.groupRepo.GroupNameExistsExcluding(name, groupID)
+		if err != nil {
+			return nil, errors.New("failed to check group name availability")
+		}
+		if exists {
+			return nil, errors.New("a group with this name already exists")
+		}
+	}
+
+	// Update the group
+	if err := s.groupRepo.UpdateGroupNameAndDescription(groupID, name, description); err != nil {
+		return nil, errors.New("failed to update group")
+	}
+
+	// Return updated group
+	return s.GetGroupDTO(groupID)
+}
+

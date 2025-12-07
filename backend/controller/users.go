@@ -187,3 +187,38 @@ func (ctrl *UserController) SearchUsers(c *gin.Context) {
 		"count": len(users),
 	})
 }
+
+// UpdateUsername handles PUT /auth/user
+// @Summary Update username
+// @Description Update the current user's username
+// @Router /auth/user [put]
+func (ctrl *UserController) UpdateUsername(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error: "user not authenticated",
+		})
+		return
+	}
+
+	var req models.UpdateUsernameRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	user, err := ctrl.service.UpdateUsername(userID.(uuid.UUID), req.Username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "username updated successfully",
+		"user":    user,
+	})
+}

@@ -32,6 +32,7 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 
 			// Protected routes
 			auth.GET("/user-details", middleware.AuthMiddleware(), userController.GetUserDetails)
+			auth.PUT("/user", middleware.AuthMiddleware(), userController.UpdateUsername)
 		}
 
 		// Chat routes (protected)
@@ -72,6 +73,9 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 
 			// Get group details
 			groups.GET("/:id", groupController.GetGroup)
+
+			// Update group name/description
+			groups.PUT("/:id", groupController.UpdateGroup)
 
 			// Get group members
 			groups.GET("/:id/members", groupController.GetGroupMembers)

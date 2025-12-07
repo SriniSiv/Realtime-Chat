@@ -52,11 +52,22 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
+// UpdateUsernameRequest represents the update username request payload
+type UpdateUsernameRequest struct {
+	Username string `json:"username" binding:"required,min=3,max=50"`
+}
+
 // CreateGroupRequest represents the create group request payload
 type CreateGroupRequest struct {
 	Name        string   `json:"name" binding:"required,min=2,max=100"`
 	Description string   `json:"description"`
 	MemberIDs   []string `json:"member_ids"` // Optional initial members
+}
+
+// UpdateGroupRequest represents the update group request payload
+type UpdateGroupRequest struct {
+	Name        string `json:"name" binding:"omitempty,min=2,max=100"`
+	Description string `json:"description"`
 }
 
 // AddMembersRequest represents the add members request payload

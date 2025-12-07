@@ -301,3 +301,23 @@ func (s *UserService) SearchUsersWithStatus(query string) ([]models.UserWithStat
 
 	return usersWithStatus, nil
 }
+
+// UpdateUsername updates a user's username
+func (s *UserService) UpdateUsername(userID uuid.UUID, newUsername string) (*models.UserDTO, error) {
+	// Check if username is already taken by another user
+	exists, err := s.repo.UsernameExistsExcludingUser(newUsername, userID)
+	if err != nil {
+		return nil, errors.New("failed to check username availability")
+	}
+	if exists {
+		return nil, errors.New("username already taken")
+	}
+
+	// Update the username
+	if err := s.repo.UpdateUsername(userID, newUsername); err != nil {
+		return nil, errors.New("failed to update username")
+	}
+
+	// Return updated user profile
+	return s.GetUserProfile(userID)
+}

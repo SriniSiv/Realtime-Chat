@@ -255,6 +255,48 @@ func (c *GroupController) SearchUserGroups(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"groups": groups, "count": len(groups)})
 }
 
+// UpdateGroup handles PUT /groups/:id
+func (c *GroupController) UpdateGroup(ctx *gin.Context) {
+	currentUserID, exists := ctx.Get("user_id")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	userID, ok := currentUserID.(uuid.UUID)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	groupIDStr := ctx.Param("id")
+	groupID, err := uuid.Parse(groupIDStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid group ID"})
+		return
+	}
+
+	var req models.UpdateGroupRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// At least one field should be provided
+	if req.Name == "" && req.Description == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "at least name or description must be provided"})
+		return
+	}
+
+	group, err := c.groupService.UpdateGroup(groupID, userID, req.Name, req.Description)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "group updated successfully", "group": group})
+}
+
 // GetGroupMessages handles GET /groups/:id/messages
 func (c *GroupController) GetGroupMessages(ctx *gin.Context) {
 	if c.messageService == nil {
