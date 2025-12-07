@@ -86,6 +86,70 @@ export const chatAPI = {
   },
 };
 
+// Group API calls
+export const groupAPI = {
+  // Create a new group
+  createGroup: async (accessToken, name, description, memberIds = []) => {
+    const response = await fetch(`${API_BASE_URL}/groups`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ name, description, member_ids: memberIds }),
+    });
+    return response.json();
+  },
+
+  // Get all groups for current user
+  getUserGroups: async (accessToken) => {
+    const response = await fetch(`${API_BASE_URL}/groups`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    return response.json();
+  },
+
+  // Get group details
+  getGroup: async (accessToken, groupId) => {
+    const response = await fetch(`${API_BASE_URL}/groups/${groupId}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    return response.json();
+  },
+
+  // Get group members
+  getGroupMembers: async (accessToken, groupId) => {
+    const response = await fetch(`${API_BASE_URL}/groups/${groupId}/members`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    return response.json();
+  },
+
+  // Add members to a group
+  addMembers: async (accessToken, groupId, memberIds) => {
+    const response = await fetch(`${API_BASE_URL}/groups/${groupId}/members`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ member_ids: memberIds }),
+    });
+    return response.json();
+  },
+
+  // Get group messages
+  getGroupMessages: async (accessToken, groupId, limit = 50, offset = 0) => {
+    const response = await fetch(
+      `${API_BASE_URL}/groups/${groupId}/messages?limit=${limit}&offset=${offset}`,
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      }
+    );
+    return response.json();
+  },
+};
+
 // WebSocket connection
 export const createWebSocket = (accessToken) => {
   return new WebSocket(`${WS_BASE_URL}/ws?token=${accessToken}`);

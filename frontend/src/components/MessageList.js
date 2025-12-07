@@ -1,10 +1,16 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 
-const MessageList = ({ messages, currentUserId, selectedUserId }) => {
+const MessageList = ({ messages, currentUserId, selectedUserId, selectedGroupId }) => {
   const messagesEndRef = useRef(null);
 
   // Filter messages for the selected conversation
   const filteredMessages = useMemo(() => {
+    // Group messages
+    if (selectedGroupId) {
+      return messages.filter(msg => msg.group_id === selectedGroupId);
+    }
+
+    // Direct messages
     if (!selectedUserId) return [];
 
     return messages.filter(msg => {
@@ -19,7 +25,7 @@ const MessageList = ({ messages, currentUserId, selectedUserId }) => {
 
       return (isFromSelected && isToMe) || (isFromMe && isToSelected);
     });
-  }, [messages, currentUserId, selectedUserId]);
+  }, [messages, currentUserId, selectedUserId, selectedGroupId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

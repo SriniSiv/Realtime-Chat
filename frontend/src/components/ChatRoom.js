@@ -1,18 +1,24 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { chatAPI, createWebSocket } from '../services/api';
+import { chatAPI, groupAPI, createWebSocket } from '../services/api';
 import UserList from './UserList';
+import GroupList from './GroupList';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import CreateGroupModal from './CreateGroupModal';
 import './ChatRoom.css';
 
 const ChatRoom = () => {
   const { user, logout, getValidAccessToken } = useAuth();
   const [messages, setMessages] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [activeTab, setActiveTab] = useState('dms'); // 'dms' or 'groups'
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
@@ -32,6 +38,20 @@ const ChatRoom = () => {
       console.error('Failed to fetch users:', err);
     }
   }, [getValidAccessToken, user.id]);
+
+  // Fetch user's groups
+  const fetchGroups = useCallback(async () => {
+    try {
+      const token = await getValidAccessToken();
+      if (!token) return;
+      const response = await groupAPI.getUserGroups(token);
+      if (response.groups) {
+        setGroups(response.groups);
+      }
+    } catch (err) {
+      console.error('Failed to fetch groups:', err);
+    }
+  }, [getValidAccessToken]);
 
   // Fetch chat history when a user is selected
   const fetchChatHistory = useCallback(async (userId) => {
@@ -62,8 +82,37 @@ const ChatRoom = () => {
     }
   }, [getValidAccessToken, user.id]);
 
+  // Fetch group messages
+  const fetchGroupMessages = useCallback(async (groupId) => {
+    if (!groupId) return;
+
+    setLoadingHistory(true);
+    try {
+      const token = await getValidAccessToken();
+      if (!token) return;
+      const response = await groupAPI.getGroupMessages(token, groupId);
+      if (response.messages) {
+        const historyMessages = response.messages.map(msg => ({
+          from: msg.sender_id,
+          from_email: msg.sender_email,
+          group_id: msg.group_id,
+          content: msg.content,
+          type: 'group',
+          timestamp: msg.created_at,
+          isSent: msg.sender_id === user.id,
+        }));
+        setMessages(historyMessages);
+      }
+    } catch (err) {
+      console.error('Failed to fetch group messages:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [getValidAccessToken, user.id]);
+
   // Handle user selection
   const handleSelectUser = useCallback((selectedUserData) => {
+    setSelectedGroup(null); // Clear group selection
     setSelectedUser(selectedUserData);
     if (selectedUserData) {
       fetchChatHistory(selectedUserData.id);
@@ -71,6 +120,17 @@ const ChatRoom = () => {
       setMessages([]);
     }
   }, [fetchChatHistory]);
+
+  // Handle group selection
+  const handleSelectGroup = useCallback((selectedGroupData) => {
+    setSelectedUser(null); // Clear user selection
+    setSelectedGroup(selectedGroupData);
+    if (selectedGroupData) {
+      fetchGroupMessages(selectedGroupData.id);
+    } else {
+      setMessages([]);
+    }
+  }, [fetchGroupMessages]);
 
   // Fetch all messages for current user on login
   const fetchAllMessages = useCallback(async () => {
@@ -115,6 +175,7 @@ const ChatRoom = () => {
       setConnectionStatus('connected');
       reconnectAttemptsRef.current = 0;
       fetchUsers();
+      fetchGroups();
       fetchAllMessages(); // Load all messages on login
     };
 
@@ -165,18 +226,29 @@ const ChatRoom = () => {
   }, [connectWebSocket]);
 
   const sendMessage = (content, type = 'direct') => {
-    console.log('sendMessage called:', { content, type, wsState: wsRef.current?.readyState, selectedUser });
+    console.log('sendMessage called:', { content, type, wsState: wsRef.current?.readyState, selectedUser, selectedGroup });
 
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       console.error('WebSocket not connected. State:', wsRef.current?.readyState);
       return;
     }
 
-    const message = {
-      to: type === 'broadcast' ? 'all' : selectedUser?.id,
-      content,
-      type,
-    };
+    let message;
+    if (selectedGroup) {
+      // Group message
+      message = {
+        group_id: selectedGroup.id,
+        content,
+        type: 'group',
+      };
+    } else {
+      // Direct or broadcast message
+      message = {
+        to: type === 'broadcast' ? 'all' : selectedUser?.id,
+        content,
+        type,
+      };
+    }
 
     console.log('Sending message via WebSocket:', message);
     wsRef.current.send(JSON.stringify(message));
@@ -188,12 +260,41 @@ const ChatRoom = () => {
       from_email: user.email,
       to: selectedUser?.id || 'all',
       to_email: selectedUser?.email || 'Everyone',
+      group_id: selectedGroup?.id,
+      group_name: selectedGroup?.name,
       content,
-      type,
+      type: selectedGroup ? 'group' : type,
       timestamp: new Date().toISOString(),
       isSent: true,
     };
     setMessages(prev => [...prev, sentMessage]);
+  };
+
+  // Handle group creation
+  const handleCreateGroup = async (name, description, memberIds) => {
+    try {
+      const token = await getValidAccessToken();
+      const response = await groupAPI.createGroup(token, name, description, memberIds);
+      if (response.group) {
+        setGroups(prev => [...prev, response.group]);
+        setShowCreateGroup(false);
+        handleSelectGroup(response.group);
+      }
+    } catch (err) {
+      console.error('Failed to create group:', err);
+    }
+  };
+
+  const getConnectionStatusText = () => {
+    if (connectionStatus === 'connected') return '● Connected';
+    if (connectionStatus === 'connecting') return '○ Connecting...';
+    return '● Disconnected';
+  };
+
+  const getChatTitle = () => {
+    if (selectedGroup) return `# ${selectedGroup.name}`;
+    if (selectedUser) return `Chat with ${selectedUser.username || selectedUser.email}`;
+    return 'Select a conversation';
   };
 
   return (
@@ -202,8 +303,7 @@ const ChatRoom = () => {
         <div className="header-left">
           <h1>💬 Realtime Chat</h1>
           <span className={`status-badge ${connectionStatus}`}>
-            {connectionStatus === 'connected' ? '● Connected' : 
-             connectionStatus === 'connecting' ? '○ Connecting...' : '● Disconnected'}
+            {getConnectionStatusText()}
           </span>
         </div>
         <div className="header-right">
@@ -213,25 +313,67 @@ const ChatRoom = () => {
       </header>
 
       <div className="chat-container">
-        <UserList
-          users={allUsers}
-          selectedUser={selectedUser}
-          onSelectUser={handleSelectUser}
-          onRefresh={fetchUsers}
-        />
+        <div className="sidebar">
+          <div className="sidebar-tabs">
+            <button
+              className={`tab-btn ${activeTab === 'dms' ? 'active' : ''}`}
+              onClick={() => setActiveTab('dms')}
+            >
+              💬 DMs
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'groups' ? 'active' : ''}`}
+              onClick={() => setActiveTab('groups')}
+            >
+              👥 Groups
+            </button>
+          </div>
+
+          {activeTab === 'dms' ? (
+            <UserList
+              users={allUsers}
+              selectedUser={selectedUser}
+              onSelectUser={handleSelectUser}
+              onRefresh={fetchUsers}
+            />
+          ) : (
+            <GroupList
+              groups={groups}
+              selectedGroup={selectedGroup}
+              onSelectGroup={handleSelectGroup}
+              onCreateGroup={() => setShowCreateGroup(true)}
+              onRefresh={fetchGroups}
+            />
+          )}
+        </div>
+
         <div className="chat-main">
           <div className="chat-title">
-            {selectedUser ? `Chat with ${selectedUser.username || selectedUser.email}` : 'Select a user to start chatting'}
+            {getChatTitle()}
             {loadingHistory && <span className="loading-indicator"> Loading...</span>}
           </div>
-          <MessageList messages={messages} currentUserId={user.id} selectedUserId={selectedUser?.id} />
+          <MessageList
+            messages={messages}
+            currentUserId={user.id}
+            selectedUserId={selectedUser?.id}
+            selectedGroupId={selectedGroup?.id}
+          />
           <MessageInput
             onSend={sendMessage}
             selectedUser={selectedUser}
+            selectedGroup={selectedGroup}
             disabled={connectionStatus !== 'connected'}
           />
         </div>
       </div>
+
+      {showCreateGroup && (
+        <CreateGroupModal
+          onClose={() => setShowCreateGroup(false)}
+          onCreate={handleCreateGroup}
+          availableUsers={allUsers}
+        />
+      )}
     </div>
   );
 };

@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 
-const MessageInput = ({ onSend, selectedUser, disabled }) => {
+const MessageInput = ({ onSend, selectedUser, selectedGroup, disabled }) => {
   const [message, setMessage] = useState('');
 
   const handleSubmit = (e, type = 'direct') => {
     e.preventDefault();
     if (!message.trim()) return;
-    
-    if (type === 'direct' && !selectedUser) {
-      alert('Please select a user to send a direct message');
+
+    if (type === 'direct' && !selectedUser && !selectedGroup) {
+      alert('Please select a user or group to send a message');
       return;
     }
 
-    onSend(message.trim(), type);
+    onSend(message.trim(), selectedGroup ? 'group' : type);
     setMessage('');
   };
 
@@ -23,6 +23,15 @@ const MessageInput = ({ onSend, selectedUser, disabled }) => {
     }
   };
 
+  const getPlaceholder = () => {
+    if (disabled) return 'Connecting...';
+    if (selectedGroup) return `Message #${selectedGroup.name}...`;
+    if (selectedUser) return `Message ${selectedUser.username || selectedUser.email}...`;
+    return 'Select a conversation...';
+  };
+
+  const canSend = selectedUser || selectedGroup;
+
   return (
     <div className="message-input">
       <form onSubmit={(e) => handleSubmit(e, 'direct')} className="input-form">
@@ -31,32 +40,28 @@ const MessageInput = ({ onSend, selectedUser, disabled }) => {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder={
-            disabled 
-              ? 'Connecting...' 
-              : selectedUser 
-                ? `Message ${selectedUser.email}...` 
-                : 'Select a user to chat...'
-          }
+          placeholder={getPlaceholder()}
           disabled={disabled}
         />
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           className="send-btn"
-          disabled={disabled || !message.trim() || !selectedUser}
-          title="Send direct message"
+          disabled={disabled || !message.trim() || !canSend}
+          title={selectedGroup ? "Send to group" : "Send direct message"}
         >
           Send
         </button>
-        <button 
-          type="button"
-          className="broadcast-btn"
-          onClick={(e) => handleSubmit(e, 'broadcast')}
-          disabled={disabled || !message.trim()}
-          title="Broadcast to all users"
-        >
-          📢 All
-        </button>
+        {!selectedGroup && (
+          <button
+            type="button"
+            className="broadcast-btn"
+            onClick={(e) => handleSubmit(e, 'broadcast')}
+            disabled={disabled || !message.trim()}
+            title="Broadcast to all users"
+          >
+            📢 All
+          </button>
+        )}
       </form>
     </div>
   );
