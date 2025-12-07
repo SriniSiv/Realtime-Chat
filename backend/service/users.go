@@ -178,6 +178,25 @@ func (s *UserService) GetAllUsers() ([]models.UserDTO, error) {
 	return userDTOs, nil
 }
 
+// GetUsersWithConversation retrieves users that the current user has had conversations with
+func (s *UserService) GetUsersWithConversation(currentUserID uuid.UUID) ([]models.UserDTO, error) {
+	users, err := s.repo.GetUsersWithConversation(currentUserID)
+	if err != nil {
+		return nil, errors.New("failed to fetch conversation users")
+	}
+
+	userDTOs := make([]models.UserDTO, len(users))
+	for i, user := range users {
+		userDTOs[i] = models.UserDTO{
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+		}
+	}
+
+	return userDTOs, nil
+}
+
 // SearchUsers searches users by username or email
 func (s *UserService) SearchUsers(query string) ([]models.UserDTO, error) {
 	users, err := s.repo.SearchUsers(query)

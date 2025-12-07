@@ -50,10 +50,23 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 				})
 			})
 
-			// Get all users with online/offline status (like Slack)
+			// Get users with conversation history (like Slack DM sidebar)
 			chat.GET("/users", func(c *gin.Context) {
-				// Get all users from database
-				allUsers, err := userService.GetAllUsers()
+				// Get current user ID from context (set by auth middleware)
+				currentUserID, exists := c.Get("user_id")
+				if !exists {
+					c.JSON(401, gin.H{"error": "user not authenticated"})
+					return
+				}
+
+				userID, ok := currentUserID.(uuid.UUID)
+				if !ok {
+					c.JSON(500, gin.H{"error": "invalid user ID"})
+					return
+				}
+
+				// Get users the current user has had conversations with
+				conversationUsers, err := userService.GetUsersWithConversation(userID)
 				if err != nil {
 					c.JSON(500, gin.H{"error": "failed to fetch users"})
 					return
@@ -67,8 +80,8 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 				}
 
 				// Build response with status
-				usersWithStatus := make([]models.UserWithStatus, len(allUsers))
-				for i, user := range allUsers {
+				usersWithStatus := make([]models.UserWithStatus, len(conversationUsers))
+				for i, user := range conversationUsers {
 					usersWithStatus[i] = models.UserWithStatus{
 						ID:       user.ID,
 						Username: user.Username,
