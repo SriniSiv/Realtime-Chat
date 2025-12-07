@@ -10,6 +10,7 @@ import (
 // User represents the users table
 type User struct {
 	ID           uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	Username     string         `gorm:"type:varchar(100);unique;not null" json:"username"`
 	Email        string         `gorm:"type:varchar(255);unique;not null" json:"email"`
 	PasswordHash string         `gorm:"type:text;not null" json:"-"`
 	CreatedAt    time.Time      `gorm:"default:now()" json:"created_at"`

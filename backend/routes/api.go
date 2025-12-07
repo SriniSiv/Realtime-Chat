@@ -71,6 +71,7 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 				for i, user := range allUsers {
 					usersWithStatus[i] = models.UserWithStatus{
 						ID:       user.ID,
+						Username: user.Username,
 						Email:    user.Email,
 						IsOnline: onlineMap[user.ID],
 					}

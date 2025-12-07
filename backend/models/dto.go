@@ -4,6 +4,7 @@ import "github.com/google/uuid"
 
 // RegisterRequest represents the registration request payload
 type RegisterRequest struct {
+	Username string `json:"username" binding:"required,min=3,max=50"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }
@@ -28,13 +29,15 @@ type AuthResponse struct {
 
 // UserDTO represents the user data transfer object
 type UserDTO struct {
-	ID    uuid.UUID `json:"id"`
-	Email string    `json:"email"`
+	ID       uuid.UUID `json:"id"`
+	Username string    `json:"username"`
+	Email    string    `json:"email"`
 }
 
 // UserWithStatus represents a user with online/offline status (like Slack)
 type UserWithStatus struct {
 	ID       uuid.UUID `json:"id"`
+	Username string    `json:"username"`
 	Email    string    `json:"email"`
 	IsOnline bool      `json:"is_online"`
 }

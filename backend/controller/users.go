@@ -41,7 +41,7 @@ func (ctrl *UserController) Register(c *gin.Context) {
 	}
 
 	// Call service layer
-	response, err := ctrl.service.Register(req.Email, req.Password)
+	response, err := ctrl.service.Register(req.Username, req.Email, req.Password)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error: err.Error(),

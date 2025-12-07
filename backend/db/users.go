@@ -20,8 +20,9 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 }
 
 // CreateUser creates a new user in the database
-func (r *UserRepository) CreateUser(email, passwordHash string) (*models.User, error) {
+func (r *UserRepository) CreateUser(username, email, passwordHash string) (*models.User, error) {
 	user := &models.User{
+		Username:     username,
 		Email:        email,
 		PasswordHash: passwordHash,
 	}
@@ -94,6 +95,15 @@ func (r *UserRepository) DeleteUserRefreshTokens(userID uuid.UUID) error {
 func (r *UserRepository) EmailExists(email string) (bool, error) {
 	var count int64
 	if err := r.db.Model(&models.User{}).Where("email = ?", email).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// UsernameExists checks if a username already exists
+func (r *UserRepository) UsernameExists(username string) (bool, error) {
+	var count int64
+	if err := r.db.Model(&models.User{}).Where("username = ?", username).Count(&count).Error; err != nil {
 		return false, err
 	}
 	return count > 0, nil

@@ -22,13 +22,22 @@ func NewUserService(repo *db.UserRepository) *UserService {
 }
 
 // Register creates a new user account
-func (s *UserService) Register(email, password string) (*models.AuthResponse, error) {
-	// Check if email already exists
-	exists, err := s.repo.EmailExists(email)
+func (s *UserService) Register(username, email, password string) (*models.AuthResponse, error) {
+	// Check if username already exists
+	usernameExists, err := s.repo.UsernameExists(username)
 	if err != nil {
 		return nil, err
 	}
-	if exists {
+	if usernameExists {
+		return nil, errors.New("username already taken")
+	}
+
+	// Check if email already exists
+	emailExists, err := s.repo.EmailExists(email)
+	if err != nil {
+		return nil, err
+	}
+	if emailExists {
 		return nil, errors.New("email already registered")
 	}
 
@@ -39,7 +48,7 @@ func (s *UserService) Register(email, password string) (*models.AuthResponse, er
 	}
 
 	// Create user
-	user, err := s.repo.CreateUser(email, string(hashedPassword))
+	user, err := s.repo.CreateUser(username, email, string(hashedPassword))
 	if err != nil {
 		return nil, errors.New("failed to create user")
 	}
@@ -65,8 +74,9 @@ func (s *UserService) Register(email, password string) (*models.AuthResponse, er
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		User: models.UserDTO{
-			ID:    user.ID,
-			Email: user.Email,
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
 		},
 	}, nil
 }
@@ -105,8 +115,9 @@ func (s *UserService) Login(email, password string) (*models.AuthResponse, error
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		User: models.UserDTO{
-			ID:    user.ID,
-			Email: user.Email,
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
 		},
 	}, nil
 }
@@ -142,8 +153,9 @@ func (s *UserService) GetUserProfile(userID uuid.UUID) (*models.UserDTO, error) 
 	}
 
 	return &models.UserDTO{
-		ID:    user.ID,
-		Email: user.Email,
+		ID:       user.ID,
+		Username: user.Username,
+		Email:    user.Email,
 	}, nil
 }
 
@@ -157,8 +169,9 @@ func (s *UserService) GetAllUsers() ([]models.UserDTO, error) {
 	userDTOs := make([]models.UserDTO, len(users))
 	for i, user := range users {
 		userDTOs[i] = models.UserDTO{
-			ID:    user.ID,
-			Email: user.Email,
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
 		}
 	}
 
