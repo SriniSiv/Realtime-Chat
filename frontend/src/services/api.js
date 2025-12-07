@@ -55,6 +55,14 @@ export const chatAPI = {
     return response.json();
   },
 
+  // Search users by username or email
+  searchUsers: async (accessToken, query) => {
+    const response = await fetch(`${API_BASE_URL}/chat/users/search?q=${encodeURIComponent(query)}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    return response.json();
+  },
+
   // Get chat history with a specific user
   getChatHistory: async (accessToken, userId, limit = 50, offset = 0) => {
     const response = await fetch(

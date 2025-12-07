@@ -1,27 +1,53 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { chatAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const UserList = ({ users, selectedUser, onSelectUser, onRefresh }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const { getValidAccessToken } = useAuth();
 
-  // Filter and sort users
-  const filteredAndSortedUsers = useMemo(() => {
-    let filtered = users;
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = users.filter(user =>
-        user.username?.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query)
-      );
+  // Debounced search function
+  const searchUsers = useCallback(async (query) => {
+    if (!query.trim()) {
+      setSearchResults(null);
+      return;
     }
 
-    // Sort: online first, then offline
-    return [...filtered].sort((a, b) => {
+    setIsSearching(true);
+    try {
+      const token = await getValidAccessToken();
+      const response = await chatAPI.searchUsers(token, query);
+      if (response.users) {
+        setSearchResults(response.users);
+      }
+    } catch (error) {
+      console.error('Search failed:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [getValidAccessToken]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      searchUsers(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, searchUsers]);
+
+  // Use search results if available, otherwise use all users
+  const displayUsers = searchResults !== null ? searchResults : users;
+
+  // Sort users: online first, then offline
+  const sortedUsers = useMemo(() => {
+    return [...displayUsers].sort((a, b) => {
       if (a.is_online === b.is_online) return 0;
       return a.is_online ? -1 : 1;
     });
-  }, [users, searchQuery]);
+  }, [displayUsers]);
 
   const onlineCount = users.filter(u => u.is_online).length;
 
@@ -42,16 +68,17 @@ const UserList = ({ users, selectedUser, onSelectUser, onRefresh }) => {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="search-input"
         />
+        {isSearching && <span className="search-loading">...</span>}
       </div>
 
       <div className="user-list-content">
-        {filteredAndSortedUsers.length === 0 ? (
+        {sortedUsers.length === 0 ? (
           <div className="no-users">
             <p>{searchQuery ? 'No users found' : 'No other users'}</p>
             <small>{searchQuery ? 'Try a different search' : 'Invite others to join...'}</small>
           </div>
         ) : (
-          filteredAndSortedUsers.map(user => (
+          sortedUsers.map(user => (
             <div
               key={user.id}
               className={`user-item ${selectedUser?.id === user.id ? 'selected' : ''} ${!user.is_online ? 'offline' : ''}`}
