@@ -146,3 +146,21 @@ func (s *UserService) GetUserProfile(userID uuid.UUID) (*models.UserDTO, error) 
 		Email: user.Email,
 	}, nil
 }
+
+// GetAllUsers retrieves all users from the database
+func (s *UserService) GetAllUsers() ([]models.UserDTO, error) {
+	users, err := s.repo.GetAllUsers()
+	if err != nil {
+		return nil, errors.New("failed to fetch users")
+	}
+
+	userDTOs := make([]models.UserDTO, len(users))
+	for i, user := range users {
+		userDTOs[i] = models.UserDTO{
+			ID:    user.ID,
+			Email: user.Email,
+		}
+	}
+
+	return userDTOs, nil
+}

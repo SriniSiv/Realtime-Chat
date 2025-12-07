@@ -130,7 +130,7 @@ func main() {
 	}))
 
 	// Setup routes (now includes WebSocket)
-	routes.SetupRoutes(router, userController, messageController, hub)
+	routes.SetupRoutes(router, userController, messageController, hub, userService)
 
 	// Handle graceful shutdown
 	go func() {

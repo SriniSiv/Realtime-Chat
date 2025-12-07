@@ -3,13 +3,16 @@ package routes
 import (
 	"backend/controller"
 	"backend/middleware"
+	"backend/models"
+	"backend/service"
 	"backend/websocket"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // SetupRoutes configures all API routes
-func SetupRoutes(router *gin.Engine, userController *controller.UserController, messageController *controller.MessageController, hub *websocket.Hub) {
+func SetupRoutes(router *gin.Engine, userController *controller.UserController, messageController *controller.MessageController, hub *websocket.Hub, userService *service.UserService) {
 	// API v1 group
 	api := router.Group("/api/realtime-chat")
 	{
@@ -38,12 +41,44 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 		chat := api.Group("/chat")
 		chat.Use(middleware.AuthMiddleware())
 		{
-			// Get list of online users
+			// Get list of online users only
 			chat.GET("/online-users", func(c *gin.Context) {
 				users := hub.GetOnlineUsers()
 				c.JSON(200, gin.H{
 					"online_users": users,
 					"count":        len(users),
+				})
+			})
+
+			// Get all users with online/offline status (like Slack)
+			chat.GET("/users", func(c *gin.Context) {
+				// Get all users from database
+				allUsers, err := userService.GetAllUsers()
+				if err != nil {
+					c.JSON(500, gin.H{"error": "failed to fetch users"})
+					return
+				}
+
+				// Get online users from hub
+				onlineUsers := hub.GetOnlineUsers()
+				onlineMap := make(map[uuid.UUID]bool)
+				for _, u := range onlineUsers {
+					onlineMap[u.ID] = true
+				}
+
+				// Build response with status
+				usersWithStatus := make([]models.UserWithStatus, len(allUsers))
+				for i, user := range allUsers {
+					usersWithStatus[i] = models.UserWithStatus{
+						ID:       user.ID,
+						Email:    user.Email,
+						IsOnline: onlineMap[user.ID],
+					}
+				}
+
+				c.JSON(200, gin.H{
+					"users": usersWithStatus,
+					"count": len(usersWithStatus),
 				})
 			})
 

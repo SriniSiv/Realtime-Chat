@@ -47,6 +47,14 @@ export const chatAPI = {
     return response.json();
   },
 
+  // Get all users with online/offline status (like Slack)
+  getAllUsers: async (accessToken) => {
+    const response = await fetch(`${API_BASE_URL}/chat/users`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    return response.json();
+  },
+
   // Get chat history with a specific user
   getChatHistory: async (accessToken, userId, limit = 50, offset = 0) => {
     const response = await fetch(

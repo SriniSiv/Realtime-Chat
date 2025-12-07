@@ -32,6 +32,13 @@ type UserDTO struct {
 	Email string    `json:"email"`
 }
 
+// UserWithStatus represents a user with online/offline status (like Slack)
+type UserWithStatus struct {
+	ID       uuid.UUID `json:"id"`
+	Email    string    `json:"email"`
+	IsOnline bool      `json:"is_online"`
+}
+
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error string `json:"error"`
