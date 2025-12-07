@@ -1,7 +1,10 @@
 package websocket
 
 import (
+	"backend/kafka"
+	"backend/redis"
 	"backend/service"
+	"context"
 	"encoding/json"
 	"log"
 	"sync"
@@ -33,8 +36,17 @@ type Hub struct {
 	// Unregister requests from clients
 	unregister chan *Client
 
-	// Message service for persisting messages
+	// Message service for persisting messages (used when Kafka is disabled)
 	messageService *service.MessageService
+
+	// Kafka producer for publishing messages for persistence
+	kafkaProducer *kafka.Producer
+
+	// Redis Pub/Sub for real-time message fanout between instances
+	redisPubSub *redis.PubSub
+
+	// Instance ID for identifying this server
+	instanceID string
 
 	// Mutex for thread-safe operations
 	mu sync.RWMutex
@@ -75,6 +87,76 @@ func NewHub(messageService *service.MessageService) *Hub {
 	}
 }
 
+// SetKafkaProducer sets the Kafka producer for message persistence
+func (h *Hub) SetKafkaProducer(producer *kafka.Producer, instanceID string) {
+	h.kafkaProducer = producer
+	h.instanceID = instanceID
+	log.Printf("Kafka producer set for hub (persistence), instanceID=%s", instanceID)
+}
+
+// SetRedisPubSub sets the Redis Pub/Sub for real-time fanout
+func (h *Hub) SetRedisPubSub(pubsub *redis.PubSub) {
+	h.redisPubSub = pubsub
+	log.Println("Redis Pub/Sub set for hub (real-time fanout)")
+}
+
+// HandleRedisMessage processes a message received from Redis (from another instance)
+func (h *Hub) HandleRedisMessage(msg *redis.ChatMessage) {
+	// Convert Redis message to internal Message format
+	message := &Message{
+		From:      msg.From,
+		FromEmail: msg.FromEmail,
+		To:        msg.To,
+		ToEmail:   msg.ToEmail,
+		Content:   msg.Content,
+		Type:      msg.Type,
+		Timestamp: msg.Timestamp,
+	}
+
+	log.Printf("Processing Redis message: from=%s, to=%s, type=%s", message.FromEmail, message.ToEmail, message.Type)
+
+	// Broadcast to local clients only (message already saved to DB via Kafka)
+	h.broadcastToLocalClients(message)
+}
+
+// broadcastToLocalClients sends a message to clients connected to this instance
+func (h *Hub) broadcastToLocalClients(message *Message) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	messageJSON, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("Error marshaling message: %v", err)
+		return
+	}
+
+	if message.Type == "direct" && message.To != uuid.Nil {
+		// Send to specific client if connected to this instance
+		if client, ok := h.clients[message.To]; ok {
+			select {
+			case client.Send <- messageJSON:
+				log.Printf("Redis: Direct message sent to local client %s", message.ToEmail)
+			default:
+				close(client.Send)
+				delete(h.clients, client.ID)
+			}
+		}
+	} else {
+		// Broadcast to all local clients except sender
+		for id, client := range h.clients {
+			if id == message.From {
+				continue
+			}
+			select {
+			case client.Send <- messageJSON:
+			default:
+				close(client.Send)
+				delete(h.clients, id)
+			}
+		}
+	}
+}
+
 // Run starts the hub's main loop
 func (h *Hub) Run() {
 	for {
@@ -106,59 +188,58 @@ func (h *Hub) Run() {
 			// Enrich message with email information
 			h.EnrichMessage(message)
 
-			// Save message to database (only for direct and broadcast, not system)
-			if message.Type != "system" && h.messageService != nil {
-				log.Printf("Saving message to database: type=%s, messageService=%v", message.Type, h.messageService != nil)
+			// Handle message persistence
+			if message.Type != "system" {
+				if h.kafkaProducer != nil {
+					// Kafka enabled: publish to Kafka for persistence
+					go func(msg *Message) {
+						kafkaMsg := &kafka.ChatMessage{
+							From:      msg.From,
+							FromEmail: msg.FromEmail,
+							To:        msg.To,
+							ToEmail:   msg.ToEmail,
+							Content:   msg.Content,
+							Type:      msg.Type,
+							Timestamp: msg.Timestamp,
+						}
+						if err := h.kafkaProducer.Publish(context.Background(), kafkaMsg); err != nil {
+							log.Printf("Error publishing to Kafka: %v", err)
+						}
+					}(message)
+				} else if h.messageService != nil {
+					// No Kafka: save directly to database
+					go func(msg *Message) {
+						savedMsg, err := h.messageService.SaveMessage(msg.From, msg.To, msg.Content, msg.Type)
+						if err != nil {
+							log.Printf("Error saving message: %v", err)
+						} else {
+							log.Printf("Message saved successfully: id=%s", savedMsg.ID)
+						}
+					}(message)
+				}
+			}
+
+			// Handle real-time fanout
+			if h.redisPubSub != nil {
+				// Redis enabled: publish to Redis for fanout to other instances
 				go func(msg *Message) {
-					savedMsg, err := h.messageService.SaveMessage(msg.From, msg.To, msg.Content, msg.Type)
-					if err != nil {
-						log.Printf("Error saving message: %v", err)
-					} else {
-						log.Printf("Message saved successfully: id=%s", savedMsg.ID)
+					redisMsg := &redis.ChatMessage{
+						From:      msg.From,
+						FromEmail: msg.FromEmail,
+						To:        msg.To,
+						ToEmail:   msg.ToEmail,
+						Content:   msg.Content,
+						Type:      msg.Type,
+						Timestamp: msg.Timestamp,
+					}
+					if err := h.redisPubSub.Publish(context.Background(), redisMsg); err != nil {
+						log.Printf("Error publishing to Redis: %v", err)
 					}
 				}(message)
-			} else {
-				log.Printf("Skipping message save: type=%s, messageService=%v", message.Type, h.messageService != nil)
 			}
 
-			h.mu.RLock()
-
-			// Convert message to JSON
-			messageJSON, err := json.Marshal(message)
-			if err != nil {
-				log.Printf("Error marshaling message: %v", err)
-				h.mu.RUnlock()
-				continue
-			}
-
-			if message.Type == "direct" && message.To != uuid.Nil {
-				// Send to specific client (direct message)
-				if client, ok := h.clients[message.To]; ok {
-					select {
-					case client.Send <- messageJSON:
-						log.Printf("Direct message sent from %s to %s", message.FromEmail, message.ToEmail)
-					default:
-						close(client.Send)
-						delete(h.clients, client.ID)
-					}
-				} else {
-					log.Printf("Recipient %s not found or offline", message.To)
-				}
-			} else {
-				// Broadcast to all clients except sender
-				for id, client := range h.clients {
-					if id == message.From {
-						continue // Don't send message back to sender
-					}
-					select {
-					case client.Send <- messageJSON:
-					default:
-						close(client.Send)
-						delete(h.clients, id)
-					}
-				}
-			}
-			h.mu.RUnlock()
+			// Broadcast to local clients
+			h.broadcastToLocalClients(message)
 		}
 	}
 }

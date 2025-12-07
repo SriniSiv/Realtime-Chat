@@ -1,7 +1,6 @@
 package config
 
 import (
-	"backend/models"
 	"log"
 
 	"gorm.io/driver/postgres"
@@ -11,8 +10,13 @@ import (
 
 // InitDB initializes and returns a GORM database connection
 func InitDB() *gorm.DB {
-	// Database connection string
-	dsn := "host=localhost user=srini password=srini@4614 dbname=realtime_chat port=5432 sslmode=disable"
+	// Ensure environment is initialized
+	if EnvironmentData == nil {
+		InitializeEnv()
+	}
+
+	// Get DSN from environment config
+	dsn := EnvironmentData.GetDSN()
 
 	// Connect to database
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
@@ -24,13 +28,5 @@ func InitDB() *gorm.DB {
 
 	log.Println("Successfully connected to the database!")
 
-	// Auto migrate database schema
-	if err := db.AutoMigrate(&models.User{}, &models.RefreshToken{}, &models.ChatMessage{}); err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
-	}
-
-	log.Println("Database migration completed!")
-
 	return db
 }
-
