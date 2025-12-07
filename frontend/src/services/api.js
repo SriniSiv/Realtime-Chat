@@ -52,9 +52,28 @@ export const authAPI = {
 
 // Chat API calls
 export const chatAPI = {
+  // Consolidated filter/search users endpoint
+  filterUsers: async (accessToken, filter = {}) => {
+    const response = await fetch(`${API_BASE_URL}/chat/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(filter),
+    });
+    return response.json();
+  },
+
+  // Get online users only (convenience method using filterUsers)
   getOnlineUsers: async (accessToken) => {
-    const response = await fetch(`${API_BASE_URL}/chat/online-users`, {
-      headers: { 'Authorization': `Bearer ${accessToken}` },
+    const response = await fetch(`${API_BASE_URL}/chat/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ online_only: true }),
     });
     return response.json();
   },
@@ -62,15 +81,25 @@ export const chatAPI = {
   // Get all users with online/offline status (like Slack)
   getAllUsers: async (accessToken) => {
     const response = await fetch(`${API_BASE_URL}/chat/users`, {
-      headers: { 'Authorization': `Bearer ${accessToken}` },
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({}),
     });
     return response.json();
   },
 
   // Search users by username or email
   searchUsers: async (accessToken, query) => {
-    const response = await fetch(`${API_BASE_URL}/chat/users/search?q=${encodeURIComponent(query)}`, {
-      headers: { 'Authorization': `Bearer ${accessToken}` },
+    const response = await fetch(`${API_BASE_URL}/chat/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ search_text: query }),
     });
     return response.json();
   },

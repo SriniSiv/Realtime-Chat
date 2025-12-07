@@ -150,6 +150,63 @@ func (r *UserRepository) SearchUsers(query string) ([]models.User, error) {
 	return users, nil
 }
 
+// FilterUsers searches and filters users with pagination
+func (r *UserRepository) FilterUsers(filter *models.UserFilterRequest, excludeUserID uuid.UUID) ([]models.User, int64, error) {
+	var users []models.User
+	var totalCount int64
+
+	query := r.db.Model(&models.User{}).Where("id != ?", excludeUserID)
+
+	// Apply search filter on username or email
+	if filter.SearchString != "" {
+		searchPattern := "%" + filter.SearchString + "%"
+		query = query.Where("username ILIKE ? OR email ILIKE ?", searchPattern, searchPattern)
+	}
+
+	// Get total count before pagination
+	if err := query.Count(&totalCount).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Apply sorting
+	if filter.Sorting != nil && filter.Sorting.Field != "" {
+		order := "ASC"
+		if filter.Sorting.Order == "desc" {
+			order = "DESC"
+		}
+		// Whitelist allowed sort fields
+		allowedFields := map[string]bool{"username": true, "email": true, "created_at": true}
+		if allowedFields[filter.Sorting.Field] {
+			query = query.Order(filter.Sorting.Field + " " + order)
+		}
+	} else {
+		query = query.Order("username ASC")
+	}
+
+	// Apply pagination
+	if filter.PageInfo != nil {
+		page := filter.PageInfo.Page
+		if page < 1 {
+			page = 1
+		}
+		pageSize := filter.PageInfo.PageSize
+		if pageSize < 1 {
+			pageSize = 50
+		}
+		if pageSize > 100 {
+			pageSize = 100
+		}
+		offset := (page - 1) * pageSize
+		query = query.Offset(offset).Limit(pageSize)
+	}
+
+	if err := query.Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return users, totalCount, nil
+}
+
 // UpdateUsername updates a user's username
 func (r *UserRepository) UpdateUsername(userID uuid.UUID, username string) error {
 	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("username", username).Error

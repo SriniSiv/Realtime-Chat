@@ -302,6 +302,63 @@ func (s *UserService) SearchUsersWithStatus(query string) ([]models.UserWithStat
 	return usersWithStatus, nil
 }
 
+// FilterUsers filters and searches users with pagination and online status
+func (s *UserService) FilterUsers(filter *models.UserFilterRequest, currentUserID uuid.UUID) (*models.UserFilterResponse, error) {
+	users, totalCount, err := s.repo.FilterUsers(filter, currentUserID)
+	if err != nil {
+		return nil, errors.New("failed to filter users")
+	}
+
+	onlineMap := s.buildOnlineMap()
+	onlineIDs := s.GetOnlineUserIDs()
+
+	// If onlineOnly filter is set, filter to only online users
+	var filteredUsers []models.User
+	if filter.OnlineOnly {
+		onlineSet := make(map[uuid.UUID]bool)
+		for _, id := range onlineIDs {
+			onlineSet[id] = true
+		}
+		for _, user := range users {
+			if onlineSet[user.ID] {
+				filteredUsers = append(filteredUsers, user)
+			}
+		}
+		totalCount = int64(len(filteredUsers))
+	} else {
+		filteredUsers = users
+	}
+
+	usersWithStatus := make([]models.UserWithStatus, len(filteredUsers))
+	for i, user := range filteredUsers {
+		usersWithStatus[i] = models.UserWithStatus{
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+			IsOnline: onlineMap[user.ID],
+		}
+	}
+
+	// Set default pagination values for response
+	page := 1
+	pageSize := 50
+	if filter.PageInfo != nil {
+		if filter.PageInfo.Page > 0 {
+			page = filter.PageInfo.Page
+		}
+		if filter.PageInfo.PageSize > 0 {
+			pageSize = filter.PageInfo.PageSize
+		}
+	}
+
+	return &models.UserFilterResponse{
+		Users:      usersWithStatus,
+		TotalCount: totalCount,
+		Page:       page,
+		PageSize:   pageSize,
+	}, nil
+}
+
 // UpdateUsername updates a user's username
 func (s *UserService) UpdateUsername(userID uuid.UUID, newUsername string) (*models.UserDTO, error) {
 	// Check if username is already taken by another user

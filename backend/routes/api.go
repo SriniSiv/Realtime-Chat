@@ -39,13 +39,12 @@ func SetupRoutes(router *gin.Engine, userController *controller.UserController, 
 		chat := api.Group("/chat")
 		chat.Use(middleware.AuthMiddleware())
 		{
-			// Get list of online users only
+			// Filter, search and paginate users with online status (consolidated endpoint)
+			chat.POST("/users", userController.FilterUsers)
+
+			// Legacy endpoints (kept for backward compatibility)
 			chat.GET("/online-users", userController.GetOnlineUsers)
-
-			// Get users with conversation history (like Slack DM sidebar)
 			chat.GET("/users", userController.GetUsersWithConversation)
-
-			// Search users by username or email
 			chat.GET("/users/search", userController.SearchUsers)
 
 			// Get chat history with a specific user

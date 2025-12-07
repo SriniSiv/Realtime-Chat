@@ -188,6 +188,36 @@ func (ctrl *UserController) SearchUsers(c *gin.Context) {
 	})
 }
 
+// FilterUsers handles POST /chat/users
+// @Summary Filter and search users
+// @Description Filter, search and paginate users with online status
+// @Router /chat/users [post]
+func (ctrl *UserController) FilterUsers(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error: "user not authenticated",
+		})
+		return
+	}
+
+	var filter models.UserFilterRequest
+	if err := c.ShouldBindJSON(&filter); err != nil {
+		// If no body provided, use empty filter
+		filter = models.UserFilterRequest{}
+	}
+
+	result, err := ctrl.service.FilterUsers(&filter, userID.(uuid.UUID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "failed to filter users",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
 // UpdateUsername handles PUT /auth/user
 // @Summary Update username
 // @Description Update the current user's username

@@ -42,6 +42,42 @@ type UserWithStatus struct {
 	IsOnline bool      `json:"is_online"`
 }
 
+// Pagination for paginated requests
+type Pagination struct {
+	Page     int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+
+// SortingCriteria for sorting results
+type SortingCriteria struct {
+	Field string `json:"field"`
+	Order string `json:"order"` // "asc" or "desc"
+}
+
+// FilterCriteria for filtering results
+type FilterCriteria struct {
+	Field    string      `json:"field"`
+	Operator string      `json:"operator"` // "eq", "neq", "like", "in", etc.
+	Value    interface{} `json:"value"`
+}
+
+// UserFilterRequest for filtering/searching users
+type UserFilterRequest struct {
+	PageInfo     *Pagination      `json:"page_info"`
+	SearchString string           `json:"search_text"`
+	Sorting      *SortingCriteria `json:"sort"`
+	Filters      []FilterCriteria `json:"selected_filters"`
+	OnlineOnly   bool             `json:"online_only"`
+}
+
+// UserFilterResponse for paginated user results
+type UserFilterResponse struct {
+	Users      []UserWithStatus `json:"users"`
+	TotalCount int64            `json:"total_count"`
+	Page       int              `json:"page"`
+	PageSize   int              `json:"page_size"`
+}
+
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error string `json:"error"`
