@@ -146,7 +146,14 @@ func (c *GroupController) AddMembers(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "members added successfully"})
+	// Fetch and return the updated group
+	group, err := c.groupService.GetGroupDTO(groupID)
+	if err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"message": "members added successfully"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "members added successfully", "group": group})
 }
 
 // GetGroup handles GET /groups/:id
