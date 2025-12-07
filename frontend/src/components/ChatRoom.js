@@ -304,6 +304,31 @@ const ChatRoom = () => {
     }
   };
 
+  // Handle join group (for available groups)
+  const handleJoinGroup = async (group) => {
+    try {
+      const token = await getValidAccessToken();
+      const response = await groupAPI.joinGroup(token, group.id, user.id);
+      if (response.error) {
+        console.error('Failed to join group:', response.error);
+        throw new Error(response.error);
+      }
+      // Add the joined group to the list
+      if (response.group) {
+        setGroups(prev => [response.group, ...prev]);
+        // Select the newly joined group
+        setSelectedGroup(response.group);
+        setSelectedUser(null);
+      } else {
+        // Fallback: refresh groups
+        fetchGroups();
+      }
+    } catch (error) {
+      console.error('Failed to join group:', error);
+      throw error;
+    }
+  };
+
   const getConnectionStatusText = () => {
     if (connectionStatus === 'connected') return '● Connected';
     if (connectionStatus === 'connecting') return '○ Connecting...';
@@ -363,6 +388,7 @@ const ChatRoom = () => {
               onCreateGroup={() => setShowCreateGroup(true)}
               onRefresh={fetchGroups}
               onAddMembers={handleAddMembers}
+              onJoinGroup={handleJoinGroup}
             />
           )}
         </div>

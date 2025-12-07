@@ -170,6 +170,19 @@ export const groupAPI = {
     );
     return response.json();
   },
+
+  // Join a group (add self as member)
+  joinGroup: async (accessToken, groupId, userId) => {
+    const response = await fetch(`${API_BASE_URL}/groups/${groupId}/members`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ member_ids: [userId] }),
+    });
+    return response.json();
+  },
 };
 
 // WebSocket connection

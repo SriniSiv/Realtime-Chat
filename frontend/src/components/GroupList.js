@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { groupAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const GroupList = ({ groups, selectedGroup, onSelectGroup, onCreateGroup, onRefresh, onAddMembers }) => {
+const GroupList = ({ groups, selectedGroup, onSelectGroup, onCreateGroup, onRefresh, onAddMembers, onJoinGroup }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [availableGroups, setAvailableGroups] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showAvailable, setShowAvailable] = useState(false);
+  const [joiningGroupId, setJoiningGroupId] = useState(null);
   const { getValidAccessToken } = useAuth();
 
   // Search groups
@@ -49,6 +50,25 @@ const GroupList = ({ groups, selectedGroup, onSelectGroup, onCreateGroup, onRefr
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery, searchGroups]);
+
+  // Handle join group
+  const handleJoinGroup = async (group) => {
+    if (joiningGroupId || !onJoinGroup) return;
+    setJoiningGroupId(group.id);
+    try {
+      await onJoinGroup(group);
+      // Remove from available groups after joining
+      setAvailableGroups(prev => prev.filter(g => g.id !== group.id));
+      // Clear search to show updated group list
+      setSearchQuery('');
+      setSearchResults(null);
+      setShowAvailable(false);
+    } catch (error) {
+      console.error('Failed to join group:', error);
+    } finally {
+      setJoiningGroupId(null);
+    }
+  };
 
   // Use search results if available, otherwise use all groups
   const displayGroups = searchResults !== null ? searchResults : groups;
@@ -119,6 +139,14 @@ const GroupList = ({ groups, selectedGroup, onSelectGroup, onCreateGroup, onRefr
                     {group.member_count} member{group.member_count !== 1 ? 's' : ''} • by {group.creator_name}
                   </span>
                 </div>
+                <button
+                  className="join-group-btn"
+                  onClick={() => handleJoinGroup(group)}
+                  disabled={joiningGroupId === group.id}
+                  title="Join Group"
+                >
+                  {joiningGroupId === group.id ? '...' : 'Join'}
+                </button>
               </div>
             ))
           )
