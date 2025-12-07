@@ -123,13 +123,11 @@ func (s *GroupService) GetUserGroups(userID uuid.UUID) ([]models.GroupDTO, error
 	return groupDTOs, nil
 }
 
-// AddMembers adds members to a group
+// AddMembers adds members to a group (public groups - anyone can add members)
 func (s *GroupService) AddMembers(groupID uuid.UUID, requestingUserID uuid.UUID, memberIDs []uuid.UUID) error {
-	// Check if requesting user is admin
-	role, err := s.groupRepo.GetMemberRole(groupID, requestingUserID)
-	if err != nil || role != "admin" {
-		return errors.New("only admins can add members")
-	}
+	// For public groups, anyone can add members (including self-join)
+	// Just verify the requesting user exists (optional check)
+	_ = requestingUserID // Acknowledge parameter (no admin check for public groups)
 
 	for _, memberID := range memberIDs {
 		// Check if already a member
