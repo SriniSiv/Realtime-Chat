@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"backend/kafka"
+	"backend/models"
 	"backend/redis"
 	"backend/service"
 	"context"
@@ -148,7 +149,7 @@ func (h *Hub) broadcastToLocalClients(message *Message) {
 	}
 
 	if message.Type == "direct" && message.To != uuid.Nil {
-		// Send to specific client if connected to this instance
+		// Send to recipient only (sender already has the message via optimistic update)
 		if client, ok := h.clients[message.To]; ok {
 			select {
 			case client.Send <- messageJSON:
@@ -158,17 +159,8 @@ func (h *Hub) broadcastToLocalClients(message *Message) {
 				delete(h.clients, client.ID)
 			}
 		}
-		// Also send to sender for confirmation
-		if client, ok := h.clients[message.From]; ok {
-			select {
-			case client.Send <- messageJSON:
-			default:
-				close(client.Send)
-				delete(h.clients, message.From)
-			}
-		}
 	} else if message.Type == "group" && message.GroupID != uuid.Nil {
-		// Send to all group members connected to this instance
+		// Send to all group members except sender (sender already has the message via optimistic update)
 		if h.groupMemberProvider != nil {
 			memberIDs, err := h.groupMemberProvider.GetGroupMemberIDs(message.GroupID)
 			if err != nil {
@@ -176,6 +168,10 @@ func (h *Hub) broadcastToLocalClients(message *Message) {
 				return
 			}
 			for _, memberID := range memberIDs {
+				// Skip sender - they already have the message
+				if memberID == message.From {
+					continue
+				}
 				if client, ok := h.clients[memberID]; ok {
 					select {
 					case client.Send <- messageJSON:
@@ -236,7 +232,10 @@ func (h *Hub) Run() {
 
 			// Handle message persistence
 			if message.Type != "system" {
+				log.Printf("Persisting message: type=%s, from=%s, to=%s, groupID=%s, content=%s",
+					message.Type, message.From, message.To, message.GroupID, message.Content)
 				if h.kafkaProducer != nil {
+					log.Printf("Using Kafka for persistence")
 					// Kafka enabled: publish to Kafka for persistence
 					go func(msg *Message) {
 						kafkaMsg := &kafka.ChatMessage{
@@ -244,6 +243,7 @@ func (h *Hub) Run() {
 							FromEmail: msg.FromEmail,
 							To:        msg.To,
 							ToEmail:   msg.ToEmail,
+							GroupID:   msg.GroupID,
 							Content:   msg.Content,
 							Type:      msg.Type,
 							Timestamp: msg.Timestamp,
@@ -253,15 +253,27 @@ func (h *Hub) Run() {
 						}
 					}(message)
 				} else if h.messageService != nil {
+					log.Printf("Using direct DB save for persistence")
 					// No Kafka: save directly to database
 					go func(msg *Message) {
-						savedMsg, err := h.messageService.SaveMessage(msg.From, msg.To, msg.Content, msg.Type)
+						var savedMsg *models.ChatMessage
+						var err error
+						if msg.Type == "group" && msg.GroupID != uuid.Nil {
+							log.Printf("Saving group message: groupID=%s", msg.GroupID)
+							savedMsg, err = h.messageService.SaveGroupMessage(msg.From, msg.GroupID, msg.Content)
+						} else {
+							log.Printf("Saving direct message: from=%s, to=%s", msg.From, msg.To)
+							savedMsg, err = h.messageService.SaveMessage(msg.From, msg.To, msg.Content, msg.Type)
+						}
 						if err != nil {
 							log.Printf("Error saving message: %v", err)
 						} else {
-							log.Printf("Message saved successfully: id=%s", savedMsg.ID)
+							log.Printf("Message saved successfully: id=%s, type=%s", savedMsg.ID, msg.Type)
 						}
 					}(message)
+				} else {
+					log.Printf("WARNING: No persistence method available (kafka=%v, messageService=%v)",
+						h.kafkaProducer != nil, h.messageService != nil)
 				}
 			}
 

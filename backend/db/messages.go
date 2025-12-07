@@ -24,7 +24,7 @@ func (r *MessageRepository) SaveMessage(senderID, receiverID uuid.UUID, content,
 
 	message := &models.ChatMessage{
 		SenderID:   senderID,
-		ReceiverID: receiverID,
+		ReceiverID: &receiverID, // Use pointer for nullable foreign key
 		Content:    content,
 		Type:       msgType,
 	}
@@ -99,7 +99,7 @@ func (r *MessageRepository) SaveGroupMessage(senderID, groupID uuid.UUID, conten
 
 	message := &models.ChatMessage{
 		SenderID: senderID,
-		GroupID:  groupID,
+		GroupID:  &groupID, // Use pointer for nullable foreign key
 		Content:  content,
 		Type:     "group",
 	}

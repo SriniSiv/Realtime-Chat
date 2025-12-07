@@ -18,6 +18,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -81,11 +82,16 @@ func main() {
 			func(msg *kafka.ChatMessage) {
 				// Save message to database
 				if msg.Type != "system" {
-					_, err := messageService.SaveMessage(msg.From, msg.To, msg.Content, msg.Type)
+					var err error
+					if msg.Type == "group" && msg.GroupID != uuid.Nil {
+						_, err = messageService.SaveGroupMessage(msg.From, msg.GroupID, msg.Content)
+					} else {
+						_, err = messageService.SaveMessage(msg.From, msg.To, msg.Content, msg.Type)
+					}
 					if err != nil {
 						log.Printf("Kafka consumer: Error saving message: %v", err)
 					} else {
-						log.Printf("Kafka consumer: Message saved to database")
+						log.Printf("Kafka consumer: Message saved to database (type=%s)", msg.Type)
 					}
 				}
 			},

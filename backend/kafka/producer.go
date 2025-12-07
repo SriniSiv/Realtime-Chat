@@ -16,6 +16,7 @@ type ChatMessage struct {
 	FromEmail string    `json:"from_email"`
 	To        uuid.UUID `json:"to,omitempty"`
 	ToEmail   string    `json:"to_email,omitempty"`
+	GroupID   uuid.UUID `json:"group_id,omitempty"`
 	Content   string    `json:"content"`
 	Type      string    `json:"type"`
 	Timestamp time.Time `json:"timestamp"`

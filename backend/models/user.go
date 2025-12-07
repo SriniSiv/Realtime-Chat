@@ -40,18 +40,18 @@ func (RefreshToken) TableName() string {
 
 // ChatMessage represents the chat_messages table
 type ChatMessage struct {
-	ID         uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	SenderID   uuid.UUID `gorm:"type:uuid;not null;index" json:"sender_id"`
-	ReceiverID uuid.UUID `gorm:"type:uuid;index" json:"receiver_id,omitempty"` // nil for broadcast/group
-	GroupID    uuid.UUID `gorm:"type:uuid;index" json:"group_id,omitempty"`    // nil for direct messages
-	Content    string    `gorm:"type:text;not null" json:"content"`
-	Type       string    `gorm:"type:varchar(20);not null;default:'direct'" json:"type"` // direct, broadcast, group
-	CreatedAt  time.Time `gorm:"default:now();index" json:"created_at"`
+	ID         uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	SenderID   uuid.UUID  `gorm:"type:uuid;not null;index" json:"sender_id"`
+	ReceiverID *uuid.UUID `gorm:"type:uuid;index" json:"receiver_id,omitempty"` // nil for broadcast/group
+	GroupID    *uuid.UUID `gorm:"type:uuid;index" json:"group_id,omitempty"`    // nil for direct messages
+	Content    string     `gorm:"type:text;not null" json:"content"`
+	Type       string     `gorm:"type:varchar(20);not null;default:'direct'" json:"type"` // direct, broadcast, group
+	CreatedAt  time.Time  `gorm:"default:now();index" json:"created_at"`
 
 	// Relations
-	Sender   User  `gorm:"foreignKey:SenderID;references:ID" json:"-"`
-	Receiver User  `gorm:"foreignKey:ReceiverID;references:ID" json:"-"`
-	Group    Group `gorm:"foreignKey:GroupID;references:ID" json:"-"`
+	Sender   User   `gorm:"foreignKey:SenderID;references:ID" json:"-"`
+	Receiver *User  `gorm:"foreignKey:ReceiverID;references:ID" json:"-"`
+	Group    *Group `gorm:"foreignKey:GroupID;references:ID" json:"-"`
 }
 
 // TableName specifies the table name for ChatMessage

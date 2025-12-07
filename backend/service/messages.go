@@ -23,14 +23,14 @@ func NewMessageService(messageRepo *db.MessageRepository, userRepo *db.UserRepos
 
 // ChatMessageResponse represents a message with user emails
 type ChatMessageResponse struct {
-	ID          uuid.UUID `json:"id"`
-	SenderID    uuid.UUID `json:"sender_id"`
-	SenderEmail string    `json:"sender_email"`
-	ReceiverID  uuid.UUID `json:"receiver_id,omitempty"`
-	GroupID     uuid.UUID `json:"group_id,omitempty"`
-	Content     string    `json:"content"`
-	Type        string    `json:"type"`
-	CreatedAt   string    `json:"created_at"`
+	ID          uuid.UUID  `json:"id"`
+	SenderID    uuid.UUID  `json:"sender_id"`
+	SenderEmail string     `json:"sender_email"`
+	ReceiverID  *uuid.UUID `json:"receiver_id,omitempty"`
+	GroupID     *uuid.UUID `json:"group_id,omitempty"`
+	Content     string     `json:"content"`
+	Type        string     `json:"type"`
+	CreatedAt   string     `json:"created_at"`
 }
 
 // SaveMessage saves a message to the database
