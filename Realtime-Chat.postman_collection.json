@@ -1,0 +1,250 @@
+{
+  "info": {
+    "name": "Realtime Chat API",
+    "description": "API collection for Realtime Chat application\n\n## WebSocket Connection\n\n**URL:** `ws://localhost:8080/api/realtime-chat/ws?token={{access_token}}`\n\n### Message Types (Send)\n\n**1. Direct Message:**\n```json\n{\n  \"to\": \"recipient_user_id\",\n  \"content\": \"Hello!\",\n  \"type\": \"direct\"\n}\n```\n\n**2. Group Message:**\n```json\n{\n  \"group_id\": \"group_uuid\",\n  \"content\": \"Hello group!\",\n  \"type\": \"group\"\n}\n```\n\n**3. Broadcast Message:**\n```json\n{\n  \"to\": \"all\",\n  \"content\": \"Hello everyone!\",\n  \"type\": \"broadcast\"\n}\n```\n\n### Message Types (Receive)\n\n**Direct/Group/Broadcast Message:**\n```json\n{\n  \"from\": \"sender_user_id\",\n  \"from_email\": \"sender@example.com\",\n  \"to\": \"recipient_user_id\",\n  \"to_email\": \"recipient@example.com\",\n  \"group_id\": \"group_uuid (if group message)\",\n  \"content\": \"Message content\",\n  \"type\": \"direct|group|broadcast\",\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}\n```\n\n**System Message (user online/offline):**\n```json\n{\n  \"from\": \"user_id\",\n  \"from_email\": \"user@example.com\",\n  \"content\": \"user@example.com is now online/offline\",\n  \"type\": \"system\",\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}\n```",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080/api/realtime-chat"
+    },
+    {
+      "key": "ws_url",
+      "value": "ws://localhost:8080/api/realtime-chat"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/refresh",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"your_refresh_token_here\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get User Details",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/user-details",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }]
+          }
+        },
+        {
+          "name": "Update Username",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/auth/user",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"newusername\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Filter Users",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/chat/users",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"search_text\": \"\",\n  \"online_only\": false,\n  \"page_info\": {\n    \"page\": 1,\n    \"page_size\": 50\n  },\n  \"sort\": {\n    \"field\": \"username\",\n    \"order\": \"asc\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Chat History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/chat/history?user_id=USER_ID_HERE&limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "history"],
+              "query": [
+                { "key": "user_id", "value": "USER_ID_HERE" },
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }]
+          }
+        },
+        {
+          "name": "Get All Messages",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/chat/messages?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["chat", "messages"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Groups",
+      "item": [
+        {
+          "name": "Create Group",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/groups/create",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Group\",\n  \"description\": \"Group description\",\n  \"member_ids\": []\n}"
+            }
+          }
+        },
+        {
+          "name": "Filter Groups",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/groups",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"search_text\": \"\",\n  \"available_only\": false,\n  \"page_info\": {\n    \"page\": 1,\n    \"page_size\": 50\n  },\n  \"sort\": {\n    \"field\": \"name\",\n    \"order\": \"asc\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Group Details",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/groups/:id",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }]
+          }
+        },
+        {
+          "name": "Update Group",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/groups/:id",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Group Name\",\n  \"description\": \"Updated description\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Group Members",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/groups/:id/members",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }]
+          }
+        },
+        {
+          "name": "Add Members",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/groups/:id/members",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"member_ids\": [\"user_id_1\", \"user_id_2\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Group Messages",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/groups/:id/messages?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["groups", ":id", "messages"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }]
+          }
+        }
+      ]
+    }
+  ]
+}
+
